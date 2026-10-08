@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-API=${API:-http://localhost:8000/api/v1}
+API_BASE=${API_BASE:-http://localhost:8001}
+API=${API:-${API_BASE}/api/v1}
 SIM=${SIM:-http://localhost:8090}
 
 echo "[1/8] health check"
 for s in healthz readyz; do
-  curl -fsS "http://localhost:8000/$s" >/dev/null
+  curl -fsS "${API_BASE}/$s" >/dev/null
 done
 
 echo "[2/8] dev token issuance"

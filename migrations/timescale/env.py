@@ -9,9 +9,11 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 pg_dsn = os.getenv("PG_DSN", "postgresql://vigil:vigil@localhost:5432/vigil")
-# Convert to standard psycopg2 / synchronous driver if needed
-if pg_dsn.startswith("postgresql+asyncpg://"):
-    pg_dsn = pg_dsn.replace("postgresql+asyncpg://", "postgresql://")
+if pg_dsn.startswith("postgresql://"):
+    pg_dsn = pg_dsn.replace("postgresql://", "postgresql+psycopg2://", 1)
+elif pg_dsn.startswith("postgresql+asyncpg://"):
+    pg_dsn = pg_dsn.replace("postgresql+asyncpg://", "postgresql+psycopg2://", 1)
+
 config.set_main_option("sqlalchemy.url", pg_dsn)
 
 target_metadata = None

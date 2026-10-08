@@ -1,9 +1,7 @@
 name: vigil
 
 x-py: &py
-  build:
-    context: .
-    dockerfile: docker/python.Dockerfile
+  image: vigil-python:latest
   env_file: .env
   restart: unless-stopped
   volumes:
@@ -74,7 +72,7 @@ services:
       POSTGRES_PASSWORD: vigil
       POSTGRES_DB: vigil
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - ts-data:/var/lib/postgresql/data
       - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
@@ -130,10 +128,6 @@ services:
 
   market_ingest:
     <<: *py
-    build:
-      context: .
-      dockerfile: docker/python.Dockerfile
-      args: { SERVICE_PATH: services/market_ingest }
     command: ["python", "-m", "market_ingest.main"]
     environment: { HEALTH_PORT: "8000" }
     depends_on:
@@ -142,10 +136,6 @@ services:
 
   social_ingest:
     <<: *py
-    build:
-      context: .
-      dockerfile: docker/python.Dockerfile
-      args: { SERVICE_PATH: services/social_ingest }
     command: ["python", "-m", "social_ingest.main"]
     depends_on:
       migrate: { condition: service_completed_successfully }
@@ -153,10 +143,6 @@ services:
 
   stream_sink:
     <<: *py
-    build:
-      context: .
-      dockerfile: docker/python.Dockerfile
-      args: { SERVICE_PATH: services/stream_sink }
     command: ["python", "-m", "stream_sink.main"]
     depends_on:
       migrate: { condition: service_completed_successfully }
@@ -165,10 +151,6 @@ services:
 
   quant_telemetry:
     <<: *py
-    build:
-      context: .
-      dockerfile: docker/python.Dockerfile
-      args: { SERVICE_PATH: services/agents/quant_telemetry }
     command: ["python", "-m", "quant_telemetry.main"]
     depends_on:
       migrate: { condition: service_completed_successfully }
@@ -176,10 +158,6 @@ services:
 
   social_intel:
     <<: *py
-    build:
-      context: .
-      dockerfile: docker/python.Dockerfile
-      args: { SERVICE_PATH: services/agents/social_intel }
     command: ["python", "-m", "social_intel.main"]
     depends_on:
       migrate: { condition: service_completed_successfully }
@@ -187,10 +165,6 @@ services:
 
   alignment_engine:
     <<: *py
-    build:
-      context: .
-      dockerfile: docker/python.Dockerfile
-      args: { SERVICE_PATH: services/alignment_engine }
     command: ["python", "-m", "alignment_engine.main"]
     depends_on:
       migrate: { condition: service_completed_successfully }
@@ -198,10 +172,6 @@ services:
 
   attribution:
     <<: *py
-    build:
-      context: .
-      dockerfile: docker/python.Dockerfile
-      args: { SERVICE_PATH: services/agents/attribution }
     command: ["python", "-m", "attribution.main"]
     depends_on:
       migrate: { condition: service_completed_successfully }
@@ -210,10 +180,6 @@ services:
 
   orchestrator:
     <<: *py
-    build:
-      context: .
-      dockerfile: docker/python.Dockerfile
-      args: { SERVICE_PATH: services/agents/orchestrator }
     command: ["python", "-m", "orchestrator.main"]
     depends_on:
       migrate: { condition: service_completed_successfully }
@@ -222,10 +188,6 @@ services:
 
   evidence_engine:
     <<: *py
-    build:
-      context: .
-      dockerfile: docker/python.Dockerfile
-      args: { SERVICE_PATH: services/evidence_engine }
     command: ["python", "-m", "evidence_engine.main"]
     depends_on:
       migrate: { condition: service_completed_successfully }
@@ -233,32 +195,22 @@ services:
 
   api:
     <<: *py
-    build:
-      context: .
-      dockerfile: docker/python.Dockerfile
-      args: { SERVICE_PATH: services/api }
     command: ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000", "--loop", "uvloop"]
     ports:
-      - "8000:8000"
+      - "8001:8000"
     depends_on:
       migrate: { condition: service_completed_successfully }
       neo4j: { condition: service_healthy }
 
   simulator:
     <<: *py
-    build:
-      context: .
-      dockerfile: docker/python.Dockerfile
-      args: { SERVICE_PATH: services/simulator }
     command: ["python", "-m", "simulator.main"]
     ports:
       - "8090:8090"
     depends_on: {}
 
   frontend:
-    build:
-      context: .
-      dockerfile: docker/frontend.Dockerfile
+    image: vigil-frontend:latest
     env_file: .env
     ports:
       - "3000:3000"

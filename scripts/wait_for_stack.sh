@@ -46,7 +46,7 @@ done
 # 5. API
 echo "Waiting for VIGIL API..."
 for i in $(seq 1 30); do
-  if curl -fsS http://localhost:8000/healthz >/dev/null 2>&1; then
+  if curl -fsS http://localhost:8001/healthz >/dev/null 2>&1; then
     echo "API is ready."
     break
   fi

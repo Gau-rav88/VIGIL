@@ -1,5 +1,10 @@
 # Development overrides: bind mount code directories for fast iteration
 services:
+  migrate:
+    volumes:
+      - ./migrations:/app/migrations
+      - ./config:/app/config:ro
+
   market_ingest:
     volumes:
       - ./libs:/app/libs
