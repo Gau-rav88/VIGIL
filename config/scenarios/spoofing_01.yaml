@@ -1,0 +1,14 @@
+id: spoofing_01
+duration_s: 900
+description: "2 accounts layer 8 orders then cancel after opposite-side fills"
+target:
+  symbol: NOVAPHARMA
+  tier: large
+  base_price: 250.0
+  base_rate_tps: 3.0
+spoofers:
+  count: 2
+  cycles: 8
+  layer_depth: 5
+  cancel_ratio: 0.95
+ground_truth_out: true

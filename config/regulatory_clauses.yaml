@@ -1,0 +1,34 @@
+- clause_id: "SEBI-PFUTP-R4(2)"
+  regime: SEBI
+  title: "PFUTP Regulations, 2003 — Reg. 4(2) (examples of manipulative, fraudulent and unfair trade practices)"
+  finding_types: [WASH_CYCLE, CIRCULAR_RING, COORDINATED_VOLUME_LOOP, PRICE_JUMP]
+  rationale_template: "Matched/circular trades among {n_accounts} linked accounts representing {suspect_ratio:.0%} of volume are consistent with creating a false or misleading appearance of trading."
+  legal_review_required: true
+
+- clause_id: "SEBI-PFUTP-R3"
+  regime: SEBI
+  title: "PFUTP Regulations, 2003 — Reg. 3 (prohibition of certain dealings in securities)"
+  finding_types: [HYPE_BURST, CROSS_MODAL_ALIGNMENT, NEAR_DUPLICATE_CAMPAIGN]
+  rationale_template: "Coordinated social hype campaigns leading artificial price movements indicate fraudulent inducement to trade."
+  legal_review_required: true
+
+- clause_id: "SEC-EA-9(a)(1)"
+  regime: SEC
+  title: "Securities Exchange Act of 1934 §9(a)(1) — wash sales / matched orders"
+  finding_types: [WASH_CYCLE, CIRCULAR_RING]
+  rationale_template: "Wash trading and matched buy/sell orders among common entities without change of beneficial ownership."
+  legal_review_required: true
+
+- clause_id: "SEC-EA-9(a)(2)"
+  regime: SEC
+  title: "Securities Exchange Act of 1934 §9(a)(2) — series of transactions raising/depressing price"
+  finding_types: [VOLUME_SPIKE, PRICE_JUMP, COORDINATED_VOLUME_LOOP, SYNCHRONIZED_ORDERS]
+  rationale_template: "Synchronized orders across affiliated accounts effecting actual volume spikes to induce purchases by others."
+  legal_review_required: true
+
+- clause_id: "SEC-EA-10b-Rule10b-5"
+  regime: SEC
+  title: "Exchange Act §10(b) and Rule 10b-5 — manipulative and deceptive devices"
+  finding_types: [HYPE_BURST, CROSS_MODAL_ALIGNMENT, SPOOFING_LAYERING]
+  rationale_template: "Use of deceptive schemes, spoofing, and fictitious quotes in connection with the purchase or sale of securities."
+  legal_review_required: true

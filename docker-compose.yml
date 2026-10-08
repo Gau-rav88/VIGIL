@@ -1,0 +1,294 @@
+name: vigil
+
+x-py: &py
+  build:
+    context: .
+    dockerfile: docker/python.Dockerfile
+  env_file: .env
+  restart: unless-stopped
+  volumes:
+    - "./config:/app/config:ro"
+    - "./keys:/keys:ro"
+  depends_on:
+    redpanda: { condition: service_healthy }
+    timescale: { condition: service_healthy }
+    redis: { condition: service_healthy }
+
+services:
+  redpanda:
+    image: redpandadata/redpanda:v24.2.7
+    command:
+      - redpanda
+      - start
+      - --smp
+      - "2"
+      - --memory
+      - 2G
+      - --overprovisioned
+      - --node-id
+      - "0"
+      - --kafka-addr
+      - internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr
+      - internal://redpanda:9092,external://localhost:19092
+    ports:
+      - "19092:19092"
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  redpanda-init:
+    image: redpandadata/redpanda:v24.2.7
+    depends_on:
+      redpanda: { condition: service_healthy }
+    volumes:
+      - "./infra/redpanda/create_topics.sh:/create_topics.sh:ro"
+    entrypoint: ["/bin/bash", "/create_topics.sh"]
+    restart: "no"
+
+  redpanda-console:
+    image: redpandadata/console:v2.7.2
+    environment:
+      KAFKA_BROKERS: "redpanda:9092"
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redpanda
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "1gb", "--maxmemory-policy", "noeviction"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 20
+    volumes:
+      - redis-data:/data
+
+  timescale:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_USER: vigil
+      POSTGRES_PASSWORD: vigil
+      POSTGRES_DB: vigil
+    ports:
+      - "5432:5432"
+    volumes:
+      - ts-data:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    command: ["postgres", "-c", "shared_preload_libraries=timescaledb", "-c", "max_connections=300", "-c", "synchronous_commit=off"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vigil -d vigil"]
+      interval: 5s
+      retries: 30
+
+  neo4j:
+    image: neo4j:5.24-community
+    environment:
+      NEO4J_AUTH: neo4j/vigilneo4j
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_server_memory_heap_max__size: 2G
+      NEO4J_dbms_security_procedures_unrestricted: "apoc.*"
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p vigilneo4j 'RETURN 1' || exit 1"]
+      interval: 10s
+      retries: 30
+
+  minio:
+    image: cgr.dev/chainguard/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: vigil
+      MINIO_ROOT_PASSWORD: vigilvigil123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+
+  minio-init:
+    <<: *py
+    command: ["python", "infra/minio/init.py"]
+    depends_on:
+      - minio
+    restart: "no"
+
+  migrate:
+    <<: *py
+    command: ["sh", "-c", "alembic -c migrations/timescale/alembic.ini upgrade head && python -m vigil_common.neo4j_migrate"]
+    depends_on:
+      timescale: { condition: service_healthy }
+      neo4j: { condition: service_healthy }
+    restart: "no"
+
+  market_ingest:
+    <<: *py
+    build:
+      context: .
+      dockerfile: docker/python.Dockerfile
+      args: { SERVICE_PATH: services/market_ingest }
+    command: ["python", "-m", "market_ingest.main"]
+    environment: { HEALTH_PORT: "8000" }
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redpanda-init: { condition: service_completed_successfully }
+
+  social_ingest:
+    <<: *py
+    build:
+      context: .
+      dockerfile: docker/python.Dockerfile
+      args: { SERVICE_PATH: services/social_ingest }
+    command: ["python", "-m", "social_ingest.main"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redpanda-init: { condition: service_completed_successfully }
+
+  stream_sink:
+    <<: *py
+    build:
+      context: .
+      dockerfile: docker/python.Dockerfile
+      args: { SERVICE_PATH: services/stream_sink }
+    command: ["python", "-m", "stream_sink.main"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      minio-init: { condition: service_completed_successfully }
+      redpanda-init: { condition: service_completed_successfully }
+
+  quant_telemetry:
+    <<: *py
+    build:
+      context: .
+      dockerfile: docker/python.Dockerfile
+      args: { SERVICE_PATH: services/agents/quant_telemetry }
+    command: ["python", "-m", "quant_telemetry.main"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redpanda-init: { condition: service_completed_successfully }
+
+  social_intel:
+    <<: *py
+    build:
+      context: .
+      dockerfile: docker/python.Dockerfile
+      args: { SERVICE_PATH: services/agents/social_intel }
+    command: ["python", "-m", "social_intel.main"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redpanda-init: { condition: service_completed_successfully }
+
+  alignment_engine:
+    <<: *py
+    build:
+      context: .
+      dockerfile: docker/python.Dockerfile
+      args: { SERVICE_PATH: services/alignment_engine }
+    command: ["python", "-m", "alignment_engine.main"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redpanda-init: { condition: service_completed_successfully }
+
+  attribution:
+    <<: *py
+    build:
+      context: .
+      dockerfile: docker/python.Dockerfile
+      args: { SERVICE_PATH: services/agents/attribution }
+    command: ["python", "-m", "attribution.main"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      neo4j: { condition: service_healthy }
+      redpanda-init: { condition: service_completed_successfully }
+
+  orchestrator:
+    <<: *py
+    build:
+      context: .
+      dockerfile: docker/python.Dockerfile
+      args: { SERVICE_PATH: services/agents/orchestrator }
+    command: ["python", "-m", "orchestrator.main"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      neo4j: { condition: service_healthy }
+      redpanda-init: { condition: service_completed_successfully }
+
+  evidence_engine:
+    <<: *py
+    build:
+      context: .
+      dockerfile: docker/python.Dockerfile
+      args: { SERVICE_PATH: services/evidence_engine }
+    command: ["python", "-m", "evidence_engine.main"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      minio-init: { condition: service_completed_successfully }
+
+  api:
+    <<: *py
+    build:
+      context: .
+      dockerfile: docker/python.Dockerfile
+      args: { SERVICE_PATH: services/api }
+    command: ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000", "--loop", "uvloop"]
+    ports:
+      - "8000:8000"
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      neo4j: { condition: service_healthy }
+
+  simulator:
+    <<: *py
+    build:
+      context: .
+      dockerfile: docker/python.Dockerfile
+      args: { SERVICE_PATH: services/simulator }
+    command: ["python", "-m", "simulator.main"]
+    ports:
+      - "8090:8090"
+    depends_on: {}
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    env_file: .env
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.108.0
+    volumes:
+      - "./infra/otel/otel-collector.yaml:/etc/otelcol-contrib/config.yaml:ro"
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    volumes:
+      - "./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro"
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    ports:
+      - "3001:3000"
+    volumes:
+      - "./infra/grafana/provisioning:/etc/grafana/provisioning:ro"
+      - "./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro"
+    depends_on:
+      - prometheus
+
+volumes:
+  redis-data: {}
+  ts-data: {}
+  neo4j-data: {}
+  minio-data: {}

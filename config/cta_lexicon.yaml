@@ -1,0 +1,69 @@
+version: "1.0.0"
+
+buy_call:
+  en:
+    - "buy now"
+    - "strong buy"
+    - "load up"
+    - "accumulate"
+    - "moonshot"
+    - "10x"
+    - "rocket"
+    - "next multibagger"
+    - "pump it"
+  hinglish:
+    - "kharido"
+    - "lelo"
+    - "daba ke kharido"
+    - "paisa banega"
+    - "rocket banega"
+    - "udne wala hai"
+
+hold_pump:
+  en:
+    - "hold tight"
+    - "don't sell"
+    - "diamond hands"
+    - "holding strong"
+  hinglish:
+    - "bechna mat"
+    - "hold karo"
+    - "pakad ke rakho"
+
+exit_signal:
+  en:
+    - "dump"
+    - "exit now"
+    - "book profit"
+    - "sell all"
+    - "cut position"
+  hinglish:
+    - "becho"
+    - "niklo"
+    - "profit book karo"
+    - "sab bech do"
+
+coordination_timing:
+  en:
+    - "sharp at"
+    - "buy at"
+    - "all enter at"
+    - "coordinate buy"
+  hinglish:
+    - "baje sharp"
+    - "sab milke kharido"
+    - "ek sath enter karo"
+
+urgency_tokens:
+  en:
+    - "urgent"
+    - "hurry"
+    - "last chance"
+    - "fast"
+    - "breaking"
+    - "massive"
+  hinglish:
+    - "jaldi"
+    - "turant"
+    - "aaj hi"
+    - "abhi"

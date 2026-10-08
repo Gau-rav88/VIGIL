@@ -1,0 +1,11 @@
+id: baseline_01
+duration_s: 600
+description: "40 symbols, organic flow, ambient chatter, no manipulation"
+symbols: 40
+ambient_rate_tps: 5.0
+social:
+  channels: 20
+  burst: null
+ring: null
+price_effect: null
+ground_truth_out: false

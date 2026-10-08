@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "asks": {
+      "items": {
+        "items": {},
+        "type": "array"
+      },
+      "maxItems": 50,
+      "title": "Asks",
+      "type": "array"
+    },
+    "bids": {
+      "items": {
+        "items": {},
+        "type": "array"
+      },
+      "maxItems": 50,
+      "title": "Bids",
+      "type": "array"
+    },
+    "depth_levels": {
+      "maximum": 50,
+      "minimum": 5,
+      "title": "Depth Levels",
+      "type": "integer"
+    },
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "exchange": {
+      "enum": [
+        "NSE",
+        "BSE",
+        "NASDAQ",
+        "NYSE",
+        "SYNTH"
+      ],
+      "title": "Exchange",
+      "type": "string"
+    },
+    "is_snapshot": {
+      "default": true,
+      "title": "Is Snapshot",
+      "type": "boolean"
+    },
+    "is_synthetic": {
+      "title": "Is Synthetic",
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "seq": {
+      "minimum": 0,
+      "title": "Seq",
+      "type": "integer"
+    },
+    "symbol": {
+      "pattern": "^[A-Z0-9&._-]{1,24}$",
+      "title": "Symbol",
+      "type": "string"
+    },
+    "ts_exchange": {
+      "title": "Ts Exchange",
+      "type": "string"
+    },
+    "ts_ingest": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ts Ingest"
+    }
+  },
+  "required": [
+    "event_id",
+    "exchange",
+    "symbol",
+    "seq",
+    "ts_exchange",
+    "depth_levels",
+    "bids",
+    "asks",
+    "is_synthetic"
+  ],
+  "title": "L2Snapshot",
+  "type": "object"
+}

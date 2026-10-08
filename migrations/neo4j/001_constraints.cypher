@@ -1,0 +1,9 @@
+CREATE CONSTRAINT trader_pk   IF NOT EXISTS FOR (n:Trader)  REQUIRE n.account_id IS UNIQUE;
+CREATE CONSTRAINT broker_pk   IF NOT EXISTS FOR (n:Broker)  REQUIRE n.broker_id  IS UNIQUE;
+CREATE CONSTRAINT ticker_pk   IF NOT EXISTS FOR (n:Ticker)  REQUIRE n.symbol     IS UNIQUE;
+CREATE CONSTRAINT channel_pk  IF NOT EXISTS FOR (n:Channel) REQUIRE n.channel_key IS UNIQUE;
+CREATE CONSTRAINT device_pk   IF NOT EXISTS FOR (n:Device)  REQUIRE n.device_fp  IS UNIQUE;
+CREATE CONSTRAINT netfp_pk    IF NOT EXISTS FOR (n:NetworkFingerprint) REQUIRE n.fp_key IS UNIQUE;
+CREATE CONSTRAINT handle_pk   IF NOT EXISTS FOR (n:Handle)  REQUIRE n.author_id  IS UNIQUE;
+CREATE CONSTRAINT entity_pk   IF NOT EXISTS FOR (n:Entity)  REQUIRE n.entity_id  IS UNIQUE;
+CREATE CONSTRAINT case_pk     IF NOT EXISTS FOR (n:Case)    REQUIRE n.case_id    IS UNIQUE;

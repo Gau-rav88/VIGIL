@@ -1,0 +1,15 @@
+[project]
+name = "verifier"
+version = "1.0.0"
+description = "Independent Forensic Dossier Bundle Verifier for Project VIGIL"
+requires-python = ">=3.12"
+dependencies = [
+    "vigil-common",
+]
+
+[project.scripts]
+vigil-verify = "verifier.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

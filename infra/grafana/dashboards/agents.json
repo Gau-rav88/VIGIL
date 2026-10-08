@@ -1,0 +1,13 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "id": 2,
+  "panels": [],
+  "refresh": "5s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["vigil", "agents"],
+  "time": { "from": "now-15m", "to": "now" },
+  "title": "VIGIL - Multi-Agent Analytics",
+  "version": 1
+}

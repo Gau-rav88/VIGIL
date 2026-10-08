@@ -1,0 +1,78 @@
+# Development overrides: bind mount code directories for fast iteration
+services:
+  market_ingest:
+    volumes:
+      - ./libs:/app/libs
+      - ./services/market_ingest:/app/services/market_ingest
+      - ./config:/app/config:ro
+      - ./keys:/keys:ro
+
+  social_ingest:
+    volumes:
+      - ./libs:/app/libs
+      - ./services/social_ingest:/app/services/social_ingest
+      - ./config:/app/config:ro
+      - ./keys:/keys:ro
+
+  stream_sink:
+    volumes:
+      - ./libs:/app/libs
+      - ./services/stream_sink:/app/services/stream_sink
+      - ./config:/app/config:ro
+      - ./keys:/keys:ro
+
+  quant_telemetry:
+    volumes:
+      - ./libs:/app/libs
+      - ./services/agents/quant_telemetry:/app/services/agents/quant_telemetry
+      - ./config:/app/config:ro
+      - ./keys:/keys:ro
+
+  social_intel:
+    volumes:
+      - ./libs:/app/libs
+      - ./services/agents/social_intel:/app/services/agents/social_intel
+      - ./config:/app/config:ro
+      - ./keys:/keys:ro
+
+  alignment_engine:
+    volumes:
+      - ./libs:/app/libs
+      - ./services/alignment_engine:/app/services/alignment_engine
+      - ./config:/app/config:ro
+      - ./keys:/keys:ro
+
+  attribution:
+    volumes:
+      - ./libs:/app/libs
+      - ./services/agents/attribution:/app/services/agents/attribution
+      - ./config:/app/config:ro
+      - ./keys:/keys:ro
+
+  orchestrator:
+    volumes:
+      - ./libs:/app/libs
+      - ./services/agents/orchestrator:/app/services/agents/orchestrator
+      - ./config:/app/config:ro
+      - ./keys:/keys:ro
+
+  evidence_engine:
+    volumes:
+      - ./libs:/app/libs
+      - ./services/evidence_engine:/app/services/evidence_engine
+      - ./config:/app/config:ro
+      - ./keys:/keys:ro
+
+  api:
+    volumes:
+      - ./libs:/app/libs
+      - ./services/api:/app/services/api
+      - ./services/verifier:/app/services/verifier
+      - ./config:/app/config:ro
+      - ./keys:/keys:ro
+
+  simulator:
+    volumes:
+      - ./libs:/app/libs
+      - ./services/simulator:/app/services/simulator
+      - ./config:/app/config:ro

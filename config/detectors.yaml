@@ -1,0 +1,59 @@
+version: "1.0.0"
+tiers:
+  micro:
+    volume_spike: { z_thr: 4.0, k: 3 }
+    price_jump: { sigma_thr: 5.0 }
+  mid:
+    volume_spike: { z_thr: 5.0, k: 3 }
+    price_jump: { sigma_thr: 5.0 }
+  large:
+    volume_spike: { z_thr: 6.0, k: 4 }
+    price_jump: { sigma_thr: 6.0 }
+
+spread_depth:
+  spread_mult: 3.0
+  imbalance_thr: 0.7
+  imbalance_hold_s: 10
+  top_levels: 5
+
+spoofing:
+  window_ms: 2000
+  min_orders: 5
+  cancel_ratio: 0.9
+  qty_mult: 5
+  exec_ms: 1000
+
+wash_cycle:
+  cycle_window_s: 900
+  qty_tol: 0.05
+  price_tol: 0.005
+  max_len: 4
+
+sync_orders:
+  bin_ms: 500
+  min_accounts: 3
+  min_bins: 3
+  window_s: 600
+  p_thr: 0.01
+
+alignment:
+  lags_s: [-120, 1800]
+  block_s: 60
+  shuffles: 500
+  peak_thr: 0.5
+  p_thr: 0.01
+  max_lag_s: 900
+
+hype:
+  burst_score: 70
+  burst_hold_s: 30
+  window_s: 60
+  step_s: 5
+  min_msgs: 5
+
+case:
+  overlap_merge_ratio: 0.5
+  watchlist_cooldown_min: 60
+  min_conf_proceed: 0.40
+  min_conf_no_loop: 0.60
+  max_widen: 2

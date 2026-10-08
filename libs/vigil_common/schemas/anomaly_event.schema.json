@@ -1,0 +1,174 @@
+{
+  "$defs": {
+    "EvidenceRef": {
+      "properties": {
+        "kind": {
+          "enum": [
+            "trade_id",
+            "order_id",
+            "l2_seq",
+            "social_message_id",
+            "raw_object_uri",
+            "anomaly_id"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "ref": {
+          "title": "Ref",
+          "type": "string"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sha256"
+        }
+      },
+      "required": [
+        "kind",
+        "ref"
+      ],
+      "title": "EvidenceRef",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "anomaly_id": {
+      "title": "Anomaly Id",
+      "type": "string"
+    },
+    "case_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Case Id"
+    },
+    "config_hash": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Config Hash",
+      "type": "string"
+    },
+    "detected_at": {
+      "title": "Detected At",
+      "type": "string"
+    },
+    "detector_version": {
+      "title": "Detector Version",
+      "type": "string"
+    },
+    "evidence_refs": {
+      "items": {
+        "$ref": "#/$defs/EvidenceRef"
+      },
+      "minItems": 1,
+      "title": "Evidence Refs",
+      "type": "array"
+    },
+    "metrics": {
+      "additionalProperties": true,
+      "title": "Metrics",
+      "type": "object"
+    },
+    "participants": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Participants",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "score": {
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Score",
+      "type": "number"
+    },
+    "severity": {
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "CRITICAL"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "source_agent": {
+      "enum": [
+        "quant_telemetry",
+        "social_intel",
+        "attribution",
+        "orchestrator"
+      ],
+      "title": "Source Agent",
+      "type": "string"
+    },
+    "symbol": {
+      "title": "Symbol",
+      "type": "string"
+    },
+    "type": {
+      "enum": [
+        "VOLUME_SPIKE",
+        "SPREAD_WIDENING",
+        "DEPTH_IMBALANCE",
+        "SPOOFING_LAYERING",
+        "WASH_CYCLE",
+        "SYNCHRONIZED_ORDERS",
+        "PRICE_JUMP",
+        "HYPE_BURST",
+        "NEAR_DUPLICATE_CAMPAIGN",
+        "CROSS_MODAL_ALIGNMENT",
+        "FINGERPRINT_CLUSTER",
+        "CIRCULAR_RING",
+        "COORDINATED_VOLUME_LOOP"
+      ],
+      "title": "Type",
+      "type": "string"
+    },
+    "window_end": {
+      "title": "Window End",
+      "type": "string"
+    },
+    "window_start": {
+      "title": "Window Start",
+      "type": "string"
+    }
+  },
+  "required": [
+    "anomaly_id",
+    "type",
+    "source_agent",
+    "symbol",
+    "window_start",
+    "window_end",
+    "score",
+    "severity",
+    "metrics",
+    "evidence_refs",
+    "detector_version",
+    "config_hash",
+    "detected_at"
+  ],
+  "title": "AnomalyEvent",
+  "type": "object"
+}

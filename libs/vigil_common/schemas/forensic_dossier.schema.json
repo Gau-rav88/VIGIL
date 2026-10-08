@@ -1,0 +1,773 @@
+{
+  "$defs": {
+    "AttributionFinding": {
+      "properties": {
+        "leads": {
+          "items": {
+            "$ref": "#/$defs/LeadAttribution"
+          },
+          "title": "Leads",
+          "type": "array"
+        },
+        "rings": {
+          "items": {
+            "$ref": "#/$defs/RingAttribution"
+          },
+          "title": "Rings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "rings",
+        "leads"
+      ],
+      "title": "AttributionFinding",
+      "type": "object"
+    },
+    "ConfidenceScore": {
+      "properties": {
+        "completeness": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Completeness",
+          "type": "number"
+        },
+        "components": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Components",
+          "type": "object"
+        },
+        "overall": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Overall",
+          "type": "number"
+        }
+      },
+      "required": [
+        "overall",
+        "completeness",
+        "components"
+      ],
+      "title": "ConfidenceScore",
+      "type": "object"
+    },
+    "DossierSignature": {
+      "properties": {
+        "alg": {
+          "const": "Ed25519",
+          "default": "Ed25519",
+          "title": "Alg",
+          "type": "string"
+        },
+        "canonicalization": {
+          "const": "RFC8785-JCS",
+          "default": "RFC8785-JCS",
+          "title": "Canonicalization",
+          "type": "string"
+        },
+        "digest_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Digest Sha256",
+          "type": "string"
+        },
+        "key_id": {
+          "title": "Key Id",
+          "type": "string"
+        },
+        "signed_at": {
+          "title": "Signed At",
+          "type": "string"
+        },
+        "value_b64": {
+          "title": "Value B64",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key_id",
+        "digest_sha256",
+        "value_b64",
+        "signed_at"
+      ],
+      "title": "DossierSignature",
+      "type": "object"
+    },
+    "DossierSubject": {
+      "properties": {
+        "exchange": {
+          "title": "Exchange",
+          "type": "string"
+        },
+        "isin": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Isin"
+        },
+        "manipulation_types": {
+          "items": {
+            "enum": [
+              "PUMP_AND_DUMP",
+              "WASH_TRADING",
+              "CIRCULAR_TRADING",
+              "SPOOFING_LAYERING",
+              "COORDINATED_LIQUIDITY_SQUEEZE"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Manipulation Types",
+          "type": "array"
+        },
+        "symbol": {
+          "title": "Symbol",
+          "type": "string"
+        },
+        "window_end": {
+          "title": "Window End",
+          "type": "string"
+        },
+        "window_start": {
+          "title": "Window Start",
+          "type": "string"
+        }
+      },
+      "required": [
+        "symbol",
+        "exchange",
+        "window_start",
+        "window_end",
+        "manipulation_types"
+      ],
+      "title": "DossierSubject",
+      "type": "object"
+    },
+    "EvidenceManifestItem": {
+      "properties": {
+        "bytes": {
+          "title": "Bytes",
+          "type": "integer"
+        },
+        "captured_at": {
+          "title": "Captured At",
+          "type": "string"
+        },
+        "evidence_id": {
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "TRADE_SLICE",
+            "L2_SLICE",
+            "L3_SLICE",
+            "SOCIAL_SLICE",
+            "GRAPH_EXPORT",
+            "CHART_IMAGE",
+            "ANOMALY_EVENT",
+            "LLM_TRACE",
+            "CONFIG_SNAPSHOT"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "uri": {
+          "title": "Uri",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "type",
+        "sha256",
+        "uri",
+        "bytes",
+        "captured_at"
+      ],
+      "title": "EvidenceManifestItem",
+      "type": "object"
+    },
+    "ExecutiveSummary": {
+      "properties": {
+        "citations": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Citations",
+          "type": "array"
+        },
+        "text": {
+          "maxLength": 4000,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "citations"
+      ],
+      "title": "ExecutiveSummary",
+      "type": "object"
+    },
+    "HumanReview": {
+      "properties": {
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Comment"
+        },
+        "reviewed_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reviewed At"
+        },
+        "reviewer_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reviewer Id"
+        },
+        "status": {
+          "enum": [
+            "NOT_REVIEWED",
+            "APPROVED",
+            "REJECTED",
+            "REWORK"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "HumanReview",
+      "type": "object"
+    },
+    "LeadAttribution": {
+      "properties": {
+        "account_id": {
+          "title": "Account Id",
+          "type": "string"
+        },
+        "confidence": {
+          "title": "Confidence",
+          "type": "number"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        }
+      },
+      "required": [
+        "account_id",
+        "confidence"
+      ],
+      "title": "LeadAttribution",
+      "type": "object"
+    },
+    "LedgerAnchor": {
+      "properties": {
+        "entry_hash": {
+          "title": "Entry Hash",
+          "type": "string"
+        },
+        "entry_id": {
+          "title": "Entry Id",
+          "type": "integer"
+        },
+        "prev_entry_hash": {
+          "title": "Prev Entry Hash",
+          "type": "string"
+        },
+        "tsa_token_b64": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tsa Token B64"
+        }
+      },
+      "required": [
+        "entry_id",
+        "entry_hash",
+        "prev_entry_hash"
+      ],
+      "title": "LedgerAnchor",
+      "type": "object"
+    },
+    "MarketEvidence": {
+      "properties": {
+        "anomalies": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Anomalies",
+          "type": "array"
+        },
+        "price_move_pct": {
+          "title": "Price Move Pct",
+          "type": "number"
+        },
+        "suspect_volume": {
+          "title": "Suspect Volume",
+          "type": "integer"
+        },
+        "suspect_volume_ratio": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Suspect Volume Ratio",
+          "type": "number"
+        },
+        "total_volume": {
+          "title": "Total Volume",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total_volume",
+        "suspect_volume",
+        "suspect_volume_ratio",
+        "price_move_pct",
+        "anomalies"
+      ],
+      "title": "MarketEvidence",
+      "type": "object"
+    },
+    "RingAttribution": {
+      "properties": {
+        "accounts": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2,
+          "title": "Accounts",
+          "type": "array"
+        },
+        "cycle_count": {
+          "title": "Cycle Count",
+          "type": "integer"
+        },
+        "entity_id": {
+          "title": "Entity Id",
+          "type": "string"
+        },
+        "evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "methods": {
+          "items": {
+            "enum": [
+              "SHARED_DEVICE",
+              "SHARED_NETWORK",
+              "SHARED_KYC",
+              "LATENCY_SIGNATURE",
+              "BROKER_PATHWAY",
+              "CIRCULAR_CYCLE",
+              "SYNCHRONIZED_ORDERS",
+              "REACTION_LATENCY"
+            ],
+            "type": "string"
+          },
+          "title": "Methods",
+          "type": "array"
+        },
+        "net_volume": {
+          "title": "Net Volume",
+          "type": "integer"
+        },
+        "ring_id": {
+          "title": "Ring Id",
+          "type": "string"
+        },
+        "ring_score": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Ring Score",
+          "type": "number"
+        }
+      },
+      "required": [
+        "ring_id",
+        "entity_id",
+        "ring_score",
+        "accounts",
+        "methods",
+        "cycle_count",
+        "net_volume",
+        "evidence_ids"
+      ],
+      "title": "RingAttribution",
+      "type": "object"
+    },
+    "SocialAlignment": {
+      "properties": {
+        "best_lag_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Best Lag S"
+        },
+        "p_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "P Value"
+        },
+        "xcorr_peak": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Xcorr Peak"
+        }
+      },
+      "title": "SocialAlignment",
+      "type": "object"
+    },
+    "SocialEvidence": {
+      "properties": {
+        "alignment": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SocialAlignment"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "channels": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Channels",
+          "type": "array"
+        },
+        "cta_breakdown": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Cta Breakdown",
+          "type": "object"
+        },
+        "hype_peak": {
+          "title": "Hype Peak",
+          "type": "number"
+        },
+        "message_count": {
+          "title": "Message Count",
+          "type": "integer"
+        },
+        "near_duplicate_campaigns": {
+          "title": "Near Duplicate Campaigns",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "channels",
+        "message_count",
+        "hype_peak",
+        "cta_breakdown",
+        "near_duplicate_campaigns"
+      ],
+      "title": "SocialEvidence",
+      "type": "object"
+    },
+    "TimelineEntry": {
+      "properties": {
+        "description": {
+          "maxLength": 1000,
+          "title": "Description",
+          "type": "string"
+        },
+        "evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "track": {
+          "enum": [
+            "SOCIAL",
+            "MARKET",
+            "GRAPH",
+            "SYSTEM"
+          ],
+          "title": "Track",
+          "type": "string"
+        },
+        "ts": {
+          "title": "Ts",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ts",
+        "track",
+        "description",
+        "evidence_ids"
+      ],
+      "title": "TimelineEntry",
+      "type": "object"
+    },
+    "ViolatedClause": {
+      "properties": {
+        "clause_id": {
+          "title": "Clause Id",
+          "type": "string"
+        },
+        "evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "finding_types": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Finding Types",
+          "type": "array"
+        },
+        "legal_review_required": {
+          "title": "Legal Review Required",
+          "type": "boolean"
+        },
+        "rationale": {
+          "title": "Rationale",
+          "type": "string"
+        },
+        "regime": {
+          "enum": [
+            "SEBI",
+            "SEC"
+          ],
+          "title": "Regime",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "regime",
+        "clause_id",
+        "title",
+        "finding_types",
+        "rationale",
+        "legal_review_required"
+      ],
+      "title": "ViolatedClause",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "attribution": {
+      "$ref": "#/$defs/AttributionFinding"
+    },
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "confidence": {
+      "$ref": "#/$defs/ConfidenceScore"
+    },
+    "dossier_id": {
+      "title": "Dossier Id",
+      "type": "string"
+    },
+    "evidence_manifest": {
+      "items": {
+        "$ref": "#/$defs/EvidenceManifestItem"
+      },
+      "minItems": 1,
+      "title": "Evidence Manifest",
+      "type": "array"
+    },
+    "executive_summary": {
+      "$ref": "#/$defs/ExecutiveSummary"
+    },
+    "generated_at": {
+      "title": "Generated At",
+      "type": "string"
+    },
+    "human_review": {
+      "$ref": "#/$defs/HumanReview"
+    },
+    "jurisdiction": {
+      "enum": [
+        "SEBI_IN",
+        "SEC_US",
+        "GENERIC"
+      ],
+      "title": "Jurisdiction",
+      "type": "string"
+    },
+    "ledger_anchor": {
+      "$ref": "#/$defs/LedgerAnchor"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Limitations",
+      "type": "array"
+    },
+    "market_evidence": {
+      "$ref": "#/$defs/MarketEvidence"
+    },
+    "merkle_root": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Merkle Root",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "signature": {
+      "$ref": "#/$defs/DossierSignature"
+    },
+    "social_evidence": {
+      "$ref": "#/$defs/SocialEvidence"
+    },
+    "subject": {
+      "$ref": "#/$defs/DossierSubject"
+    },
+    "supersedes": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Supersedes"
+    },
+    "timeline": {
+      "items": {
+        "$ref": "#/$defs/TimelineEntry"
+      },
+      "minItems": 1,
+      "title": "Timeline",
+      "type": "array"
+    },
+    "version": {
+      "minimum": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "violated_clauses": {
+      "items": {
+        "$ref": "#/$defs/ViolatedClause"
+      },
+      "title": "Violated Clauses",
+      "type": "array"
+    }
+  },
+  "required": [
+    "dossier_id",
+    "version",
+    "case_id",
+    "generated_at",
+    "jurisdiction",
+    "subject",
+    "executive_summary",
+    "timeline",
+    "market_evidence",
+    "social_evidence",
+    "attribution",
+    "violated_clauses",
+    "confidence",
+    "limitations",
+    "evidence_manifest",
+    "merkle_root",
+    "ledger_anchor",
+    "signature",
+    "human_review"
+  ],
+  "title": "ForensicDossier",
+  "type": "object"
+}

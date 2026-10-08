@@ -1,0 +1,42 @@
+id: pump_dump_ring_01
+duration_s: 1800
+description: "SME ticker ZENITHSME pump and dump with 20 coordinated ring accounts"
+target:
+  symbol: ZENITHSME
+  tier: micro
+  base_price: 40.0
+  base_rate_tps: 0.4
+social:
+  channels: 3
+  t0_s: 300
+  burst:
+    msgs_per_min: 90
+    duration_s: 600
+    cta_mix:
+      BUY_CALL: 0.45
+      HOLD_PUMP: 0.20
+      COORDINATION_TIMING: 0.15
+      TARGET_PRICE: 0.10
+      NEUTRAL: 0.10
+    near_dup_ratio: 0.50
+    languages:
+      - en
+      - hinglish
+ring:
+  accounts: 20
+  brokers: 3
+  shared_devices: 5
+  shared_asn: 1
+  reaction_lag_s:
+    mean: 150
+    sd: 20
+  buy_volume_share: 0.45
+  wash_cycles:
+    count: 6
+    lengths: [2, 3, 4]
+    qty: 1000
+  dump_start_s: 1140
+price_effect:
+  pump_pct: 38.0
+  dump_pct: -30.0
+ground_truth_out: true

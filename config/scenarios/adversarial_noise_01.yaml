@@ -1,0 +1,13 @@
+id: adversarial_noise_01
+duration_s: 900
+description: "Genuine news-driven spike with organic social surge (should NOT open a case or open with LOW confidence)"
+target:
+  symbol: ACMESYSTEMS
+  tier: mid
+  base_price: 120.0
+  base_rate_tps: 2.0
+organic_surge:
+  social_channels: 10
+  spike_multiplier: 5.0
+  news_sentiment: 0.8
+ground_truth_out: true

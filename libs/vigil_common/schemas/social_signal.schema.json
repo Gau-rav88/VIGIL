@@ -1,0 +1,249 @@
+{
+  "$defs": {
+    "ParserMetadata": {
+      "properties": {
+        "llm_model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Llm Model"
+        },
+        "mode": {
+          "enum": [
+            "LLM",
+            "FALLBACK_RULES"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "prompt_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Sha256"
+        },
+        "response_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Response Sha256"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode",
+        "version"
+      ],
+      "title": "ParserMetadata",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "author_id": {
+      "title": "Author Id",
+      "type": "string"
+    },
+    "channel_id": {
+      "title": "Channel Id",
+      "type": "string"
+    },
+    "cta_class": {
+      "enum": [
+        "BUY_CALL",
+        "HOLD_PUMP",
+        "TARGET_PRICE",
+        "EXIT_SIGNAL",
+        "COORDINATION_TIMING",
+        "NEUTRAL"
+      ],
+      "title": "Cta Class",
+      "type": "string"
+    },
+    "cta_confidence": {
+      "anyOf": [
+        {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cta Confidence"
+    },
+    "forward_cascade_depth": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Forward Cascade Depth",
+      "type": "integer"
+    },
+    "mention_type": {
+      "anyOf": [
+        {
+          "enum": [
+            "CASHTAG",
+            "SYMBOL",
+            "COMPANY_NAME",
+            "ALIAS"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Mention Type"
+    },
+    "message_event_id": {
+      "title": "Message Event Id",
+      "type": "string"
+    },
+    "near_dup_cluster_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Near Dup Cluster Id"
+    },
+    "parser": {
+      "$ref": "#/$defs/ParserMetadata"
+    },
+    "platform": {
+      "title": "Platform",
+      "type": "string"
+    },
+    "raw_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Raw Sha256",
+      "type": "string"
+    },
+    "scheduled_action_time": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scheduled Action Time"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "sentiment": {
+      "anyOf": [
+        {
+          "maximum": 1,
+          "minimum": -1,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sentiment"
+    },
+    "signal_id": {
+      "title": "Signal Id",
+      "type": "string"
+    },
+    "target_price": {
+      "anyOf": [
+        {
+          "pattern": "^\\d+(\\.\\d{1,8})?$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Price"
+    },
+    "ticker": {
+      "pattern": "^[A-Z0-9&._-]{1,24}$",
+      "title": "Ticker",
+      "type": "string"
+    },
+    "ticker_confidence": {
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Ticker Confidence",
+      "type": "number"
+    },
+    "ts_posted": {
+      "title": "Ts Posted",
+      "type": "string"
+    },
+    "ts_processed": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ts Processed"
+    },
+    "urgency": {
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Urgency",
+      "type": "number"
+    }
+  },
+  "required": [
+    "signal_id",
+    "message_event_id",
+    "platform",
+    "channel_id",
+    "author_id",
+    "ts_posted",
+    "ticker",
+    "ticker_confidence",
+    "cta_class",
+    "urgency",
+    "raw_sha256",
+    "parser"
+  ],
+  "title": "SocialSignal",
+  "type": "object"
+}

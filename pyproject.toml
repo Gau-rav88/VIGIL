@@ -1,0 +1,37 @@
+[project]
+name = "vigil-workspace"
+version = "1.0.0"
+description = "Project VIGIL - Autonomous Multi-Agent Forensic Intelligence Platform"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv.workspace]
+members = [
+    "libs/*",
+    "services/market_ingest",
+    "services/social_ingest",
+    "services/stream_sink",
+    "services/alignment_engine",
+    "services/evidence_engine",
+    "services/verifier",
+    "services/api",
+    "services/simulator",
+    "services/agents/*",
+]
+
+[tool.uv.sources]
+vigil-common = { workspace = true }
+verifier = { workspace = true }
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

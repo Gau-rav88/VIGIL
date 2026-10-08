@@ -1,0 +1,16 @@
+[project]
+name = "evidence-engine"
+version = "1.0.0"
+description = "Evidence Generation Engine for Project VIGIL"
+requires-python = ">=3.12"
+dependencies = [
+    "vigil-common",
+    "jinja2>=3.1.4",
+    "weasyprint>=61.0",
+    "matplotlib>=3.8.0",
+    "qrcode>=7.4.2",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

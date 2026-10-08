@@ -1,0 +1,25 @@
+version: "1.0.0"
+
+aliases:
+  ZENITHSME:
+    company_name: "Zenith SME Technologies Ltd"
+    aliases:
+      - "ZENITH"
+      - "ZENITHSME"
+      - "ZENITH TECH"
+      - "ZEN"
+  ACMESYSTEMS:
+    company_name: "ACME Industrial Systems"
+    aliases:
+      - "ACME"
+      - "ACMESYS"
+  NOVAPHARMA:
+    company_name: "Nova Pharmaceuticals Ltd"
+    aliases:
+      - "NOVA"
+      - "NOVAPHARM"
+  SOLARIS:
+    company_name: "Solaris Clean Energy Ltd"
+    aliases:
+      - "SOLARIS"
+      - "SOLAR"

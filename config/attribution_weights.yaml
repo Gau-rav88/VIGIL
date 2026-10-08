@@ -1,0 +1,17 @@
+version: "1.0.0"
+weights:
+  SHARED_KYC: 0.95
+  SHARED_DEVICE: 0.90
+  CIRCULAR_CYCLE: 0.85
+  SYNCHRONIZED_ORDERS: 0.70
+  SHARED_NETWORK: 0.60
+  LATENCY_SIGNATURE: 0.50
+  REACTION_LATENCY: 0.50
+  BROKER_PATHWAY: 0.40
+
+thresholds:
+  link_confidence: 0.60
+  high_confidence: 0.80
+  confirm_boost: 0.95
+  max_cycle_length: 6
+  reaction_p_thr: 0.01

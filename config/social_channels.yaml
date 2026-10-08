@@ -1,0 +1,28 @@
+version: "1.0.0"
+
+channels:
+  - id: "tg-pump-elite"
+    platform: "telegram"
+    name: "Elite Wealth Pumps"
+    visibility: "public"
+    is_suspect: true
+  - id: "tg-jackpot-calls"
+    platform: "telegram"
+    name: "Jackpot Stock Calls"
+    visibility: "public"
+    is_suspect: true
+  - id: "tg-multibagger-insider"
+    platform: "telegram"
+    name: "Multibagger Insider"
+    visibility: "public"
+    is_suspect: true
+  - id: "disc-retail-traders"
+    platform: "discord"
+    name: "Retail Traders Hub"
+    visibility: "public"
+    is_suspect: false
+  - id: "reddit-dalalstreet"
+    platform: "reddit"
+    name: "r/IndianStreetBets"
+    visibility: "public"
+    is_suspect: false

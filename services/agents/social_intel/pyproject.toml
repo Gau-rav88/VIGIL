@@ -1,0 +1,13 @@
+[project]
+name = "social-intel"
+version = "1.0.0"
+description = "Social Intelligence Agent for Project VIGIL"
+requires-python = ">=3.12"
+dependencies = [
+    "vigil-common",
+    "numpy>=1.26.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

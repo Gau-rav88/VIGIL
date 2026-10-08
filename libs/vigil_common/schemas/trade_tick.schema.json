@@ -1,0 +1,284 @@
+{
+  "$defs": {
+    "Party": {
+      "properties": {
+        "account_id": {
+          "pattern": "^[A-Za-z0-9_-]{22,64}$",
+          "title": "Account Id",
+          "type": "string"
+        },
+        "api_client_id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Api Client Id"
+        },
+        "asn": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Asn"
+        },
+        "broker_id": {
+          "maxLength": 32,
+          "minLength": 1,
+          "title": "Broker Id",
+          "type": "string"
+        },
+        "device_fp": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{22,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Device Fp"
+        },
+        "gateway_id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gateway Id"
+        },
+        "ip_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{22,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ip Hash"
+        },
+        "order_id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Order Id"
+        },
+        "order_to_ack_us": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Order To Ack Us"
+        }
+      },
+      "required": [
+        "account_id",
+        "broker_id"
+      ],
+      "title": "Party",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "aggressor_side": {
+      "enum": [
+        "BUY",
+        "SELL",
+        "UNKNOWN"
+      ],
+      "title": "Aggressor Side",
+      "type": "string"
+    },
+    "buyer": {
+      "$ref": "#/$defs/Party"
+    },
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "exchange": {
+      "enum": [
+        "NSE",
+        "BSE",
+        "NASDAQ",
+        "NYSE",
+        "SYNTH"
+      ],
+      "title": "Exchange",
+      "type": "string"
+    },
+    "ingest_latency_us": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ingest Latency Us"
+    },
+    "is_synthetic": {
+      "title": "Is Synthetic",
+      "type": "boolean"
+    },
+    "isin": {
+      "anyOf": [
+        {
+          "pattern": "^[A-Z]{2}[A-Z0-9]{9}[0-9]$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Isin"
+    },
+    "market_segment": {
+      "anyOf": [
+        {
+          "enum": [
+            "CASH",
+            "FNO",
+            "SME",
+            "OTHER"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Market Segment"
+    },
+    "price": {
+      "pattern": "^\\d+(\\.\\d{1,8})?$",
+      "title": "Price",
+      "type": "string"
+    },
+    "qty": {
+      "minimum": 1,
+      "title": "Qty",
+      "type": "integer"
+    },
+    "scenario_label": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scenario Label"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "seller": {
+      "$ref": "#/$defs/Party"
+    },
+    "seq": {
+      "minimum": 0,
+      "title": "Seq",
+      "type": "integer"
+    },
+    "symbol": {
+      "pattern": "^[A-Z0-9&._-]{1,24}$",
+      "title": "Symbol",
+      "type": "string"
+    },
+    "trade_id": {
+      "maxLength": 64,
+      "title": "Trade Id",
+      "type": "string"
+    },
+    "ts_exchange": {
+      "title": "Ts Exchange",
+      "type": "string"
+    },
+    "ts_ingest": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ts Ingest"
+    },
+    "ts_received": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ts Received"
+    }
+  },
+  "required": [
+    "event_id",
+    "exchange",
+    "symbol",
+    "trade_id",
+    "seq",
+    "ts_exchange",
+    "price",
+    "qty",
+    "aggressor_side",
+    "buyer",
+    "seller",
+    "is_synthetic"
+  ],
+  "title": "TradeTick",
+  "type": "object"
+}

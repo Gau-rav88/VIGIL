@@ -1,0 +1,223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "author_display_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Author Display Hash"
+    },
+    "author_id": {
+      "pattern": "^[A-Za-z0-9_-]{22,64}$",
+      "title": "Author Id",
+      "type": "string"
+    },
+    "channel_id": {
+      "maxLength": 96,
+      "title": "Channel Id",
+      "type": "string"
+    },
+    "channel_member_count": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Channel Member Count"
+    },
+    "channel_name": {
+      "anyOf": [
+        {
+          "maxLength": 256,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Channel Name"
+    },
+    "channel_visibility": {
+      "enum": [
+        "public",
+        "lawful_access"
+      ],
+      "title": "Channel Visibility",
+      "type": "string"
+    },
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "forwarded_from_channel_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Forwarded From Channel Id"
+    },
+    "is_synthetic": {
+      "title": "Is Synthetic",
+      "type": "boolean"
+    },
+    "lang": {
+      "anyOf": [
+        {
+          "pattern": "^[a-z]{2,3}(-[A-Za-z]+)?$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Lang"
+    },
+    "media_sha256": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 10,
+      "title": "Media Sha256",
+      "type": "array"
+    },
+    "message_id": {
+      "maxLength": 96,
+      "title": "Message Id",
+      "type": "string"
+    },
+    "platform": {
+      "enum": [
+        "telegram",
+        "discord",
+        "reddit",
+        "x",
+        "stocktwits",
+        "forum"
+      ],
+      "title": "Platform",
+      "type": "string"
+    },
+    "raw_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Raw Sha256",
+      "type": "string"
+    },
+    "reactions": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reactions"
+    },
+    "reply_to_message_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reply To Message Id"
+    },
+    "scenario_label": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scenario Label"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "text": {
+      "maxLength": 8192,
+      "title": "Text",
+      "type": "string"
+    },
+    "ts_ingest": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ts Ingest"
+    },
+    "ts_posted": {
+      "title": "Ts Posted",
+      "type": "string"
+    },
+    "urls": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 20,
+      "title": "Urls",
+      "type": "array"
+    },
+    "views": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Views"
+    }
+  },
+  "required": [
+    "event_id",
+    "platform",
+    "channel_id",
+    "channel_visibility",
+    "message_id",
+    "author_id",
+    "ts_posted",
+    "text",
+    "raw_sha256",
+    "is_synthetic"
+  ],
+  "title": "SocialMessage",
+  "type": "object"
+}

@@ -1,0 +1,247 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "account_id": {
+      "pattern": "^[A-Za-z0-9_-]{22,64}$",
+      "title": "Account Id",
+      "type": "string"
+    },
+    "action": {
+      "enum": [
+        "NEW",
+        "MODIFY",
+        "CANCEL",
+        "TRADE"
+      ],
+      "title": "Action",
+      "type": "string"
+    },
+    "api_client_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Api Client Id"
+    },
+    "asn": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Asn"
+    },
+    "broker_id": {
+      "maxLength": 32,
+      "title": "Broker Id",
+      "type": "string"
+    },
+    "device_fp": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Device Fp"
+    },
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "exchange": {
+      "enum": [
+        "NSE",
+        "BSE",
+        "NASDAQ",
+        "NYSE",
+        "SYNTH"
+      ],
+      "title": "Exchange",
+      "type": "string"
+    },
+    "gateway_id": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Gateway Id"
+    },
+    "ip_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ip Hash"
+    },
+    "is_synthetic": {
+      "title": "Is Synthetic",
+      "type": "boolean"
+    },
+    "leaves_qty": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Leaves Qty"
+    },
+    "order_id": {
+      "maxLength": 64,
+      "title": "Order Id",
+      "type": "string"
+    },
+    "order_to_ack_us": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Order To Ack Us"
+    },
+    "order_type": {
+      "anyOf": [
+        {
+          "enum": [
+            "LIMIT",
+            "MARKET",
+            "IOC",
+            "FOK"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Order Type"
+    },
+    "orig_order_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Orig Order Id"
+    },
+    "price": {
+      "anyOf": [
+        {
+          "pattern": "^\\d+(\\.\\d{1,8})?$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Price"
+    },
+    "qty": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Qty"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "seq": {
+      "minimum": 0,
+      "title": "Seq",
+      "type": "integer"
+    },
+    "side": {
+      "enum": [
+        "BUY",
+        "SELL"
+      ],
+      "title": "Side",
+      "type": "string"
+    },
+    "symbol": {
+      "pattern": "^[A-Z0-9&._-]{1,24}$",
+      "title": "Symbol",
+      "type": "string"
+    },
+    "ts_exchange": {
+      "title": "Ts Exchange",
+      "type": "string"
+    },
+    "ts_ingest": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ts Ingest"
+    }
+  },
+  "required": [
+    "event_id",
+    "exchange",
+    "symbol",
+    "seq",
+    "ts_exchange",
+    "order_id",
+    "action",
+    "side",
+    "account_id",
+    "broker_id",
+    "is_synthetic"
+  ],
+  "title": "L3OrderEvent",
+  "type": "object"
+}

@@ -1,0 +1,36 @@
+version: "1.0.0"
+
+roles:
+  admin:
+    permissions:
+      - "sim:control"
+      - "cases:read"
+      - "cases:write"
+      - "dossiers:read"
+      - "dossiers:write"
+      - "ledger:read"
+      - "admin:access"
+      - "evidence:read"
+  compliance_officer:
+    permissions:
+      - "cases:read"
+      - "cases:review"
+      - "dossiers:read"
+      - "dossiers:publish"
+      - "identity:reveal"
+      - "ledger:read"
+      - "evidence:read"
+  investigator:
+    permissions:
+      - "cases:read"
+      - "cases:write"
+      - "cases:submit"
+      - "dossiers:read"
+      - "graph:feedback"
+      - "evidence:read"
+  auditor_readonly:
+    permissions:
+      - "cases:read"
+      - "dossiers:read"
+      - "ledger:read"
+      - "verify:access"

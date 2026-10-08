@@ -1,0 +1,16 @@
+version: "1.0.0"
+weights:
+  f_rate: 0.25
+  f_auth: 0.15
+  f_cta: 0.20
+  f_dup: 0.15
+  f_urg: 0.10
+  f_xch: 0.15
+
+thresholds:
+  window_s: 60
+  step_s: 5
+  min_messages: 5
+  ewma_alpha: 0.02
+  burst_threshold: 70.0
+  burst_sustain_s: 30

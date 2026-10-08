@@ -1,0 +1,13 @@
+id: liquidity_squeeze_01
+duration_s: 1200
+description: "Coordinated withdrawal of depth followed by synchronized aggressive buys"
+target:
+  symbol: SOLARIS
+  tier: micro
+  base_price: 15.0
+  base_rate_tps: 0.3
+squeeze:
+  withdrawal_duration_s: 180
+  depth_reduction_pct: 75.0
+  synchronized_buys: 15
+ground_truth_out: true

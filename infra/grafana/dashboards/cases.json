@@ -1,0 +1,13 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "id": 3,
+  "panels": [],
+  "refresh": "5s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["vigil", "cases"],
+  "time": { "from": "now-15m", "to": "now" },
+  "title": "VIGIL - Case & Dossier Intelligence",
+  "version": 1
+}

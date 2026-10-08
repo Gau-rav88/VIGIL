@@ -1,0 +1,16 @@
+id: wash_ring_01
+duration_s: 1200
+description: "6 accounts trade in 2- to 5-cycles with matched qty"
+target:
+  symbol: ACMESYSTEMS
+  tier: mid
+  base_price: 120.0
+  base_rate_tps: 1.0
+ring:
+  accounts: 6
+  brokers: 2
+  wash_cycles:
+    count: 12
+    lengths: [2, 3, 4, 5]
+    qty: 500
+ground_truth_out: true

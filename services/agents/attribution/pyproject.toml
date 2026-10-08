@@ -1,0 +1,14 @@
+[project]
+name = "attribution"
+version = "1.0.0"
+description = "Cyber-Forensics Attribution Agent for Project VIGIL"
+requires-python = ">=3.12"
+dependencies = [
+    "vigil-common",
+    "networkx>=3.3",
+    "scipy>=1.13.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
