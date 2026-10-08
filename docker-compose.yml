@@ -211,6 +211,9 @@ services:
 
   frontend:
     image: vigil-frontend:latest
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
     env_file: .env
     ports:
       - "3000:3000"

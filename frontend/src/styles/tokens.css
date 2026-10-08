@@ -1,0 +1,47 @@
+:root {
+  /* surfaces */
+  --bg-base:#F3F5F6; --bg-raised:#FFFFFF; --bg-sunken:#E8ECEE;
+  /* ink */
+  --ink:#1F2B33; --ink-muted:#51616B; --ink-faint:#6C7B85;           /* faint: large or decorative only */
+  /* structure */
+  --line:#CBD3D8; --line-strong:#9AA7AF;
+  /* meaning */
+  --tag:#F2B705;  --tag-ink:#3D2E00;  --tag-wash:#FFF4CC;
+  --uv:#5B3FD4;   --uv-wash:#ECE8FB;
+  --verified:#0F7B6C; --verified-wash:#E2F3F0;
+  --seal:#B3261E; --seal-wash:#FBE9E7;
+  /* data series */
+  --social:#2563C9; --market:#1F2B33; --price:#51616B;
+  /* focus */
+  --focus:#5B3FD4;
+  /* shape */
+  --r-cell:2px; --r-panel:6px; --r-chip:999px;
+  /* depth */
+  --shadow-pop:0 8px 24px rgba(20,35,44,.18);
+  /* rhythm */
+  --rail-w:216px; --rail-w-collapsed:56px; --topbar-h:48px; --casebar-h:56px;
+  --row-h:32px;
+}
+:root[data-density="comfortable"] { --row-h:40px; }
+
+/* Deep bench: wall display theme, built on blue-green slate */
+:root[data-theme="floor"] {
+  --bg-base:#14232C; --bg-raised:#1B2E39; --bg-sunken:#0F1B22;
+  --ink:#E6ECEF; --ink-muted:#A3B3BC; --ink-faint:#7F919B;
+  --line:#2F4654; --line-strong:#4A6677;
+  --tag:#F2B705; --tag-ink:#1F1700; --tag-wash:#3A3210;
+  --uv:#A593FF; --uv-wash:#2A2550;
+  --verified:#4FD1B8; --verified-wash:#143B38;
+  --seal:#FF8A80; --seal-wash:#44211F;
+  --social:#7FB0FF; --market:#E6ECEF; --price:#A3B3BC;
+  --focus:#F2B705;
+  --shadow-pop:0 8px 24px rgba(0,0,0,.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; scroll-behavior:auto !important; }
+}
+:focus-visible { outline:2px solid var(--focus); outline-offset:2px; border-radius:var(--r-cell); }
+body { background:var(--bg-base); color:var(--ink); font-family:var(--font-sans); font-size:15px; line-height:1.45; font-variant-numeric:tabular-nums; }
+.doc-prose { font-family:var(--font-serif); line-height:1.65; max-width:68ch; }
+.hash { font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12.5px; letter-spacing:0; word-break:break-all; }

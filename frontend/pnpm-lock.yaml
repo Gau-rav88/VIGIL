@@ -17,6 +17,9 @@ importers:
       cytoscape-fcose:
         specifier: ^2.2.0
         version: 2.2.0(cytoscape@3.34.3)
+      d3-scale:
+        specifier: ^4.0.2
+        version: 4.0.2
       lucide-react:
         specifier: ^0.383.0
         version: 0.383.0(react@18.3.1)
@@ -39,6 +42,9 @@ importers:
       '@types/cytoscape':
         specifier: ^3.19.16
         version: 3.21.9
+      '@types/d3-scale':
+        specifier: ^4.0.9
+        version: 4.0.9
       '@types/node':
         specifier: ^20.14.0
         version: 20.19.43

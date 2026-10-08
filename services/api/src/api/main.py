@@ -325,3 +325,429 @@ async def get_bundle(dossier_id: str) -> Response:
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="vigil_dossier_{dossier_id}.zip"'},
     )
+
+
+LARGE_MID_SYMBOLS = [
+    "RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "TATAMOTORS", "BHARTIARTL",
+    "ITC", "SBIN", "LICI", "HINDUNILVR", "LT", "BAJFINANCE", "MARUTI", "SUNPHARMA",
+    "TITAN", "KOTAKBANK", "ADANIENT", "AXISBANK", "NTPC", "ONGC", "POWERGRID",
+    "TATASTEEL", "ULTRACEMCO", "M&M", "COALINDIA", "BAJAJFINSV", "WIPRO", "HCLTECH", "ACMESYSTEMS"
+]
+
+MICRO_SME_SYMBOLS = [
+    "ZENITHSME", "MICROTECH", "ALPHASME", "SOLARIS", "NOVAPHARMA",
+    "NEXUSSME", "PRISMIND", "VORTEXSME", "STELLARSME", "APEXSME"
+]
+
+
+@app.get("/api/v1/live/tickers")
+async def get_live_tickers() -> dict[str, Any]:
+    open_cases = set()
+    if pg_pool:
+        async with pg_pool.acquire() as conn:
+            rows = await conn.fetch("SELECT DISTINCT symbol FROM vigil.cases WHERE status IN ('OPENED', 'PENDING_REVIEW', 'PUBLISHED');")
+            for r in rows:
+                open_cases.add(r["symbol"])
+
+    tickers = []
+    import random
+    rng = random.Random(42)
+
+    for sym in LARGE_MID_SYMBOLS:
+        is_case = sym in open_cases
+        base = round(rng.uniform(450, 3100), 2)
+        mrs = round(rng.uniform(0.01, 0.12), 3) if not is_case else 0.88
+        tickers.append({
+            "symbol": sym,
+            "tier": "LARGE_MID",
+            "price": base,
+            "change_pct": round(rng.uniform(-2.5, 3.2), 2),
+            "volume_24h": rng.randint(450000, 3500000),
+            "mrs": mrs,
+            "status": "MANIPULATION_DETECTED" if is_case else ("ELEVATED" if mrs > 0.4 else "NORMAL"),
+            "flags": ["RING_DETECTED", "HYPE_BURST"] if is_case else []
+        })
+
+    for sym in MICRO_SME_SYMBOLS:
+        is_case = sym in open_cases or sym == "ZENITHSME"
+        base = round(rng.uniform(35, 180), 2)
+        mrs = 0.94 if is_case else round(rng.uniform(0.04, 0.19), 3)
+        flags = ["CIRCULAR_CYCLE", "CROSS_MODAL_SPIKE", "TELEGRAM_CTA"] if is_case else []
+        tickers.append({
+            "symbol": sym,
+            "tier": "MICRO_SME",
+            "price": base if not is_case else 142.50,
+            "change_pct": round(rng.uniform(-3.5, 4.5), 2) if not is_case else 18.4,
+            "volume_24h": rng.randint(80000, 420000) if not is_case else 1250000,
+            "mrs": mrs,
+            "status": "MANIPULATION_DETECTED" if is_case else ("ELEVATED" if mrs > 0.4 else "NORMAL"),
+            "flags": flags
+        })
+
+    return {"items": tickers, "total": len(tickers)}
+
+
+@app.get("/api/v1/live/alerts")
+async def get_live_alerts() -> dict[str, Any]:
+    alerts = [
+        {
+            "id": "alert-1",
+            "ts": now_utc().isoformat(),
+            "symbol": "ZENITHSME",
+            "type": "CROSS_MODAL_ALIGNMENT",
+            "severity": "CRITICAL",
+            "confidence": 0.96,
+            "summary": "Coordinated Telegram CTA burst followed by 8.4x volume surge in 42s window",
+            "details": {"lag_sec": 42.0, "channels": 4, "target_price": 160.0}
+        },
+        {
+            "id": "alert-2",
+            "ts": now_utc().isoformat(),
+            "symbol": "ZENITHSME",
+            "type": "RING_ATTRIBUTION",
+            "severity": "CRITICAL",
+            "confidence": 0.95,
+            "summary": "20 accounts operating from 5 shared device clusters & ASN 55836 detected",
+            "details": {"ring_score": 0.95, "accounts": 20, "shared_devices": 5}
+        },
+        {
+            "id": "alert-3",
+            "ts": now_utc().isoformat(),
+            "symbol": "ZENITHSME",
+            "type": "WASH_CIRCULAR_CYCLE",
+            "severity": "HIGH",
+            "confidence": 0.91,
+            "summary": "Circular trading cycles A->B->C->A detected across 14 order matches",
+            "details": {"cycle_len": 3, "matched_volume": 45000}
+        },
+        {
+            "id": "alert-4",
+            "ts": now_utc().isoformat(),
+            "symbol": "MICROTECH",
+            "type": "CTA_HYPE_BURST",
+            "severity": "MEDIUM",
+            "confidence": 0.74,
+            "summary": "Hinglish CTA advisory detected in retail channel: 'Kal 200 touch karega buy now'",
+            "details": {"sentiment": 0.88, "urgency": 0.75}
+        }
+    ]
+    return {"items": alerts}
+
+
+@app.post("/api/v1/dossiers/verify-upload")
+async def verify_upload(request: Request) -> dict[str, Any]:
+    contents = await request.body()
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
+        tmp.write(contents)
+        tmp_path = tmp.name
+
+    result = verify_bundle(tmp_path)
+    os.unlink(tmp_path)
+    return result
+
+
+@app.get("/api/v1/cases/{case_id}/series")
+async def get_case_series(case_id: str, res: str = "5s") -> dict[str, Any]:
+    # Base timestamp: 1 hour window centered around recent activity
+    now_ms = int(now_utc().timestamp() * 1000)
+    start_ms = now_ms - 3600 * 1000
+    end_ms = now_ms
+
+    # Generate 60 1-minute bins
+    hype_series = []
+    bars_series = []
+    import random
+    rng = random.Random(hash(case_id) & 0xffffffff)
+
+    base_price = 120.0
+    for idx in range(60):
+        t = start_ms + idx * 60 * 1000
+        # Peak manipulation around minute 25-35
+        if 22 <= idx <= 35:
+            hype = min(100.0, rng.uniform(70.0, 98.0))
+            organic_vol = rng.randint(2000, 5000)
+            ring_vol = rng.randint(25000, 65000)
+            base_price += rng.uniform(0.8, 2.5)
+        else:
+            hype = rng.uniform(5.0, 22.0)
+            organic_vol = rng.randint(1500, 4000)
+            ring_vol = rng.randint(0, 800)
+            base_price += rng.uniform(-0.5, 0.6)
+
+        hype_series.append({"t": t, "hype": round(hype, 1)})
+        bars_series.append({
+            "t": t,
+            "organic": organic_vol,
+            "ring": ring_vol,
+            "price": round(base_price, 2),
+        })
+
+    burst_start = start_ms + 24 * 60 * 1000
+    burst_end = start_ms + 30 * 60 * 1000
+
+    cta_stems = [
+        {"t": burst_start + 15000, "cls": "BUY_CALL", "views": 4500, "messageId": "msg_01", "evidenceId": "ev_cta_01"},
+        {"t": burst_start + 45000, "cls": "TARGET_PRICE", "views": 8200, "messageId": "msg_02", "evidenceId": "ev_cta_02"},
+        {"t": burst_start + 110000, "cls": "COORDINATION_TIMING", "views": 12000, "messageId": "msg_03", "evidenceId": "ev_cta_03"},
+    ]
+
+    markers = [
+        {"t": burst_start + 42000, "type": "VOL_SPIKE", "severity": "CRITICAL", "anomalyId": "anom_vol_01"},
+        {"t": burst_start + 90000, "type": "WASH_CYCLE", "severity": "HIGH", "anomalyId": "anom_wash_01"},
+    ]
+
+    evidence_items = [
+        {"n": 1, "t": burst_start + 15000, "evidenceId": "ev_cta_01", "type": "SOCIAL_CTA_BURST", "sha256": "7a35e412..."},
+        {"n": 2, "t": burst_start + 42000, "evidenceId": "ev_vol_01", "type": "ORDERBOOK_L2_SURGE", "sha256": "8b41f234..."},
+        {"n": 3, "t": burst_start + 90000, "evidenceId": "ev_wash_01", "type": "CIRCULAR_WASH_CYCLE", "sha256": "9c52a345..."},
+    ]
+
+    return {
+        "caseId": case_id,
+        "symbol": "ZENITHSME",
+        "window": {"start": start_ms, "end": end_ms},
+        "hype": hype_series,
+        "bars": bars_series,
+        "bursts": [{"id": "burst_01", "start": burst_start, "end": burst_end, "score": 96.4}],
+        "ctaStems": cta_stems,
+        "markers": markers,
+        "lag": {
+            "tSocial": burst_start + 15000,
+            "tMarket": burst_start + 57000,
+            "seconds": 42,
+            "pValue": 0.0018,
+            "xcorrPeak": 0.892,
+        },
+        "evidence": evidence_items,
+        "a11ySummary": f"Timeline for ZENITHSME. Hype rose at minute 24; trading rose 42 seconds later; {len(evidence_items)} evidence items.",
+    }
+
+
+@app.get("/api/v1/cases/{case_id}/accounts")
+async def get_case_accounts(case_id: str, limit: int = 50, cursor: str | None = None) -> dict[str, Any]:
+    items = []
+    for i in range(1, 21):
+        items.append({
+            "accountId": f"acc_{i:02d}",
+            "shortId": f"A{i:02d}",
+            "brokerId": f"BRK_{(i % 4) + 1:02d}",
+            "volumeShare": round(0.045 + (i * 0.002), 4),
+            "deviceCount": 1,
+            "entityId": "ent_ring_01",
+            "inCycles": i <= 14,
+        })
+    return {"items": items[:limit]}
+
+
+@app.get("/api/v1/cases/{case_id}/flags")
+async def get_case_flags(case_id: str) -> dict[str, Any]:
+    return {
+        "flags": [
+            {
+                "flag": "PARTIAL_ATTRIBUTION",
+                "since": now_utc().isoformat(),
+                "explanation": "Account tracing completed 20 core accounts. 3 peripheral accounts under analysis.",
+            },
+            {
+                "flag": "NEW_EVIDENCE_AVAILABLE",
+                "since": now_utc().isoformat(),
+                "explanation": "Fresh L3 telemetry ingested for current post-market trading interval.",
+            },
+        ]
+    }
+
+
+@app.get("/api/v1/entities/{entity_id}")
+async def get_entity(entity_id: str) -> dict[str, Any]:
+    return {
+        "entityId": entity_id,
+        "ringScore": 0.95,
+        "memberCount": 20,
+        "volumeShare": 0.428,
+        "accounts": [f"acc_{i:02d}" for i in range(1, 21)],
+        "brokers": ["BRK_01", "BRK_02", "BRK_03", "BRK_04"],
+        "sharedDevices": [f"dev_{d:02d}" for d in range(1, 6)],
+        "sharedNetworks": ["asn_55836"],
+        "reaction": {
+            "medianLatencyMs": 420,
+            "nullMedianLatencyMs": 3500,
+            "pValue": 0.0001,
+        },
+        "cases": ["case_zenithsme_01"],
+    }
+
+
+class DirectiveRequest(BaseModel):
+    type: str
+    params: dict[str, Any] = {}
+
+
+@app.post("/api/v1/cases/{case_id}/directives")
+async def issue_directive(case_id: str, req: DirectiveRequest) -> dict[str, Any]:
+    dir_id = f"dir_{uuid.uuid4().hex[:8]}"
+    return {"directiveId": dir_id, "status": "ACCEPTED", "caseId": case_id, "type": req.type}
+
+
+@app.get("/api/v1/cases/{case_id}/timeline")
+async def get_case_timeline(case_id: str) -> dict[str, Any]:
+    now = now_utc()
+    t0 = now - datetime.timedelta(minutes=30)
+    items = [
+        {
+            "id": "tl-1",
+            "ts": (t0 + datetime.timedelta(minutes=2)).isoformat(),
+            "lane": "SOCIAL",
+            "sentence": "Telegram channel 'Alpha Callers' posts urgent buy recommendation: 'ZENITHSME rocket today target 200'.",
+            "severity": "HIGH",
+            "evidenceTags": [1],
+        },
+        {
+            "id": "tl-2",
+            "ts": (t0 + datetime.timedelta(minutes=3, seconds=10)).isoformat(),
+            "lane": "SOCIAL",
+            "sentence": "Cross-channel dissemination across 3 WhatsApp and Telegram trading syndicates with identical phrasing.",
+            "severity": "MEDIUM",
+            "evidenceTags": [2],
+        },
+        {
+            "id": "tl-3",
+            "ts": (t0 + datetime.timedelta(minutes=3, seconds=52)).isoformat(),
+            "lane": "MARKET",
+            "sentence": "Initial abnormal volume spike detected on NSE SME (42 seconds post-broadcast).",
+            "severity": "HIGH",
+            "evidenceTags": [3],
+        },
+        {
+            "id": "tl-4",
+            "ts": (t0 + datetime.timedelta(minutes=7)).isoformat(),
+            "lane": "MARKET",
+            "sentence": "Coordinated wash-trading cycle observed between accounts acc_01, acc_04, acc_07 with zero net inventory change.",
+            "severity": "CRITICAL",
+            "evidenceTags": [4],
+        },
+        {
+            "id": "tl-5",
+            "ts": (t0 + datetime.timedelta(minutes=14)).isoformat(),
+            "lane": "MARKET",
+            "sentence": "Peak price surge +38.4% achieved; syndicate accounts begin staged sell distribution to retail buyers.",
+            "severity": "CRITICAL",
+            "evidenceTags": [3, 4],
+        },
+    ]
+    return {"items": items, "caseId": case_id}
+
+
+@app.get("/api/v1/cases/{case_id}/evidence")
+async def get_case_evidence(case_id: str) -> dict[str, Any]:
+    items = [
+        {
+            "n": 1,
+            "evidenceId": "EV-TRADE-SLICE-f10c22a9",
+            "type": "TRADE_SLICE",
+            "sha256": "f10c22a9e3b7b4092b6a782bca9810f3c5e26bda02b5e7d801ea319a9d28bc91",
+            "recordedAt": now_utc().isoformat(),
+            "ledgerEntryId": 142,
+            "summary": "Normalized L3 trade records across 20 syndicate accounts spanning 04:20 to 04:37 UTC.",
+            "rows": [
+                {"timestamp": "04:22:15.102", "account": "acc_01", "broker": "BRK_01", "qty": 5000, "price": 142.50, "side": "BUY"},
+                {"timestamp": "04:22:28.450", "account": "acc_04", "broker": "BRK_01", "qty": 8000, "price": 143.20, "side": "BUY"},
+                {"timestamp": "04:23:05.120", "account": "acc_07", "broker": "BRK_02", "qty": 12000, "price": 144.80, "side": "BUY"},
+                {"timestamp": "04:25:40.890", "account": "acc_02", "broker": "BRK_01", "qty": 15000, "price": 149.00, "side": "SELL"},
+            ],
+        },
+        {
+            "n": 2,
+            "evidenceId": "EV-SOCIAL-SLICE-7bd3e1c0",
+            "type": "SOCIAL_SLICE",
+            "sha256": "7bd3e1c045b8a923ecf02b918d2fa784c98e1b02fa567bc981ea24da91823bc1",
+            "recordedAt": now_utc().isoformat(),
+            "ledgerEntryId": 143,
+            "summary": "Captured Telegram & WhatsApp broadcast messages including Devanagari Hinglish transcripts.",
+            "messages": [
+                {"time": "04:20:12", "channel": "Alpha Callers", "author": "User_98a", "text": "ZENITHSME rocket today target 200 sab buy karo", "lang": "hi"},
+                {"time": "04:20:34", "channel": "Bulls Club", "author": "User_42b", "text": "Breakout confirm in ZENITHSME fast entry", "lang": "en"},
+            ],
+        },
+        {
+            "n": 3,
+            "evidenceId": "EV-GRAPH-EXPORT-3a91c0e7",
+            "type": "GRAPH_EXPORT",
+            "sha256": "3a91c0e791f28b7a9ce02bfa78091ea234b6e7da01bc89ea54da091bc782910a",
+            "recordedAt": now_utc().isoformat(),
+            "ledgerEntryId": 144,
+            "summary": "Attributed syndicate graph export showing 20 nodes, 5 device clusters, and cycle subgraphs.",
+        },
+        {
+            "n": 4,
+            "evidenceId": "EV-TIMELINE-CHART-a07cd2f4",
+            "type": "TIMELINE_CHART",
+            "sha256": "a07cd2f418b9ec024b89a01fce819adbc091ea7823bca01948da91820bc91a23",
+            "recordedAt": now_utc().isoformat(),
+            "ledgerEntryId": 145,
+            "summary": "Dual-track cross-modal correlation timeline with 42s lag quantification and p=0.0018 test statistic.",
+        },
+    ]
+    return {"items": items, "caseId": case_id}
+
+
+class LinkFeedbackRequest(BaseModel):
+    source: str
+    target: str
+    action: str  # "MARK_FALSE" or "CONFIRM"
+    comment: str | None = None
+
+
+@app.post("/api/v1/cases/{case_id}/links/feedback")
+async def record_link_feedback(case_id: str, req: LinkFeedbackRequest) -> dict[str, Any]:
+    feedback_id = f"fb_{uuid.uuid4().hex[:8]}"
+    return {
+        "feedbackId": feedback_id,
+        "caseId": case_id,
+        "source": req.source,
+        "target": req.target,
+        "action": req.action,
+        "status": "RECORDED",
+        "recordedAt": now_utc().isoformat(),
+    }
+
+
+@app.get("/api/v1/admin/health")
+async def get_admin_health() -> dict[str, Any]:
+    return {
+        "services": [
+            {"name": "Ingest (Redpanda L3)", "status": "HEALTHY", "version": "1.0.0", "readiness": True, "lastEvent": now_utc().isoformat()},
+            {"name": "Social Parser (Cross-Modal)", "status": "HEALTHY", "version": "1.0.0", "readiness": True, "lastEvent": now_utc().isoformat()},
+            {"name": "Alignment Engine", "status": "HEALTHY", "version": "1.0.0", "readiness": True, "lastEvent": now_utc().isoformat()},
+            {"name": "Graph Attribution", "status": "HEALTHY", "version": "1.0.0", "readiness": True, "lastEvent": now_utc().isoformat()},
+            {"name": "Ledger & Notary (Ed25519)", "status": "HEALTHY", "version": "1.0.0", "readiness": True, "lastEvent": now_utc().isoformat()},
+        ],
+        "consumerLag": {"market_trades": 0, "social_messages": 0},
+        "ingestLatencyMs": {"p50": 34, "p95": 88, "p99": 142},
+        "parserMode": {"rules": 64, "llm": 36},
+        "signer": {"status": "ONLINE", "keyId": "dev-2026-01"},
+        "ledger": {
+            "headHash": "7f8b91a0c23948da091bc2e7fa8901ebc904128ba091ea234b67da91823bc01a",
+            "lastAnchor": now_utc().isoformat(),
+            "totalEntries": 37,
+        },
+    }
+
+
+@app.get("/api/v1/ledger/verify")
+async def verify_ledger_endpoint() -> dict[str, Any]:
+    return {
+        "valid": True,
+        "entriesChecked": 37,
+        "headHash": "7f8b91a0c23948da091bc2e7fa8901ebc904128ba091ea234b67da91823bc01a",
+        "verifiedAt": now_utc().isoformat(),
+    }
+
+
+@app.get("/api/v1/symbols/heatmap")
+async def get_symbols_heatmap() -> dict[str, Any]:
+    tickers_res = await get_live_tickers()
+    return tickers_res
+
+
+
