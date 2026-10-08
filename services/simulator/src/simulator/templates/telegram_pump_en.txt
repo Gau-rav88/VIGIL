@@ -1,0 +1,15 @@
+Big news coming on ${ticker}! Target {target} within 2 days! Load up now!
+${ticker} is breaking out! Everyone buy now before it hits upper circuit!
+MULTIBAGGER ALERT: ${ticker} accumulator mode ON. Target price {target}!
+Operator entry in ${ticker}! Buy immediately, 100% gain guaranteed!
+${ticker} rocket mode! Don't miss this opportunity, enter sharp at {time}!
+Urgent buy call: ${ticker} going to {target} by Friday! Strong buy!
+Whale volume spotted in ${ticker}! All members load up aggressively!
+Hold tight and don't sell ${ticker}, this is easily going 5x!
+Coordinated entry on ${ticker} at {time}. Target {target}!
+${ticker} next multibagger! Golden opportunity to double your portfolio!
+Insider tip: massive institutional blocks moving into ${ticker} today!
+Take positions in ${ticker} now! Explosive upper rally expected before close!
+Strong BUY on ${ticker} with stoploss nil! Target {target} guaranteed!
+Everyone place buy orders for ${ticker} at {time}! Clear the asks!
+${ticker} circuit to circuit runner! Accumulate maximum quantity today!

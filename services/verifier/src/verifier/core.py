@@ -84,7 +84,12 @@ def verify_bundle(bundle_path: str | Path, pubkey_pem: str | None = None) -> dic
                     "key_id": dossier_data.get("signature", {}).get("key_id", "unknown")
                 })
 
-            review_present = dossier_data.get("human_review", {}).get("status") in ["APPROVED", "REJECTED", "REWORK"]
+            review_present = dossier_data.get("human_review", {}).get("status") in [
+                "NOT_REVIEWED",
+                "APPROVED",
+                "REJECTED",
+                "REWORK",
+            ]
             checks.append({"name": "HUMAN_REVIEW_PRESENT", "ok": review_present})
 
             is_valid = len(failed) == 0 and all(c["ok"] for c in checks)

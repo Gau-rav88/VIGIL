@@ -14,6 +14,8 @@ echo "[2/8] dev token issuance"
 TOKEN=$(curl -fsS -X POST "$API/auth/dev-token" -H 'content-type: application/json' -d '{"sub":"smoke-c","role":"compliance_officer"}' | jq -r .token)
 H=(-H "authorization: Bearer $TOKEN")
 
+docker exec vigil-timescale-1 psql -U vigil -d vigil -c "DELETE FROM vigil.dossiers; DELETE FROM vigil.case_events; DELETE FROM vigil.cases;" >/dev/null 2>&1 || true
+
 echo "[3/8] baseline 60s scenario"
 curl -fsS -X POST "$SIM/scenarios/baseline_01/start?speed=20&seed=1" >/dev/null
 sleep 60

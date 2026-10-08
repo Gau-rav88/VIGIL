@@ -40,5 +40,5 @@ def compute_merkle_root(evidence_items: list[dict[str, Any]]) -> tuple[str, list
             next_level.append(parent)
         current_level = next_level
 
-    root_hex = current_level[0].hexdigest()
+    root_hex = current_level[0].hex()
     return root_hex, proofs
