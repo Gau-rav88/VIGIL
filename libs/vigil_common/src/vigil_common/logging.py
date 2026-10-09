@@ -1,10 +1,12 @@
 import logging
 import sys
+from typing import Any
+
 import structlog
 
 
 def setup_logging(log_level: str = "INFO") -> None:
-    shared_processors = [
+    shared_processors: list[Any] = [
         structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
         structlog.processors.TimeStamper(fmt="iso"),
@@ -25,5 +27,5 @@ def setup_logging(log_level: str = "INFO") -> None:
     )
 
 
-def get_logger(name: str = "vigil") -> structlog.stdlib.BoundLogger:
+def get_logger(name: str = "vigil") -> Any:
     return structlog.get_logger(name)

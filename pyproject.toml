@@ -26,6 +26,21 @@ verifier = { workspace = true }
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+exclude = [
+    ".agents",
+    ".venv",
+    "frontend",
+]
+
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501", "BLE001"]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/*" = ["E402"]
+
+
 
 [tool.mypy]
 python_version = "3.12"
@@ -35,3 +50,18 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+pythonpath = [
+    "libs/vigil_common/src",
+    "services/market_ingest/src",
+    "services/social_ingest/src",
+    "services/stream_sink/src",
+    "services/alignment_engine/src",
+    "services/evidence_engine/src",
+    "services/verifier/src",
+    "services/api/src",
+    "services/simulator/src",
+    "services/agents/quant_telemetry/src",
+    "services/agents/social_intel/src",
+    "services/agents/attribution/src",
+    "services/agents/orchestrator/src",
+]

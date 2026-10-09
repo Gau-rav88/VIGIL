@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-import datetime
-from dataclasses import dataclass, field
-from typing import Any
-import numpy as np
+from dataclasses import dataclass
+from typing import Any, Literal
 
+import numpy as np
 from vigil_common.models.market import L2Snapshot, L3OrderEvent, TradeTick
+
 from simulator.groundtruth import ScenarioGroundTruth
 from simulator.orderbook import OrderBook
-from simulator.ring import RingAccount, RingSpec, build_ring, generate_id
-
+from simulator.ring import RingSpec, build_ring, generate_id
 
 LARGE_MID_SYMBOLS = [
     "RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "TATAMOTORS", "BHARTIARTL",
@@ -56,6 +55,7 @@ class MarketModel:
         self.organic_accounts = self._init_organic_accounts(2000)
         self.symbols_state: dict[str, SymbolState] = {}
         self.ring_spec: RingSpec | None = build_ring(self.scenario_cfg, self.rng)
+        self.spoofer_accounts: list[OrganicAccount] = []
         self.ground_truth: ScenarioGroundTruth | None = None
         self.order_counter = 0
 
@@ -208,8 +208,20 @@ class MarketModel:
         # Spoofing ground truth
         spoofer_cfg = self.scenario_cfg.get("spoofers")
         if spoofer_cfg:
-            spoofer_accs = [generate_id(self.rng, 22) for _ in range(spoofer_cfg.get("count", 2))]
+            count = int(spoofer_cfg.get("count", 2))
+            spoofer_accs = [generate_id(self.rng, 22) for _ in range(count)]
             gt.spoofers = spoofer_accs
+            self.spoofer_accounts = [
+                OrganicAccount(
+                    account_id=acc_id,
+                    broker_id=f"BRK-SP-{i+1:02d}",
+                    device_fp=generate_id(self.rng, 22),
+                    ip_hash=generate_id(self.rng, 22),
+                    asn=int(self.rng.integers(10000, 65000)),
+                    gateway_id=f"GW-SP-{i+1}",
+                )
+                for i, acc_id in enumerate(spoofer_accs)
+            ]
 
         self.ground_truth = gt
 
@@ -254,7 +266,7 @@ class MarketModel:
 
             # GBM step
             norm_shock = self.rng.standard_normal()
-            step_vol = state.sigma * np.sqrt(dt_s)
+            step_vol = (state.sigma / 60.0) * np.sqrt(dt_s)
             state.current_mid *= np.exp((drift - 0.5 * step_vol**2) * dt_s + step_vol * norm_shock)
 
             # Poisson arrival for organic orders
@@ -270,6 +282,7 @@ class MarketModel:
                 # Decide if crossing (market/aggressive) or resting (limit)
                 is_aggressive = bool(self.rng.random() < 0.35)
                 tick = 0.05
+                side: Literal["BUY", "SELL"]
                 if is_buy:
                     if is_aggressive:
                         best_ask = state.book.best_ask() or (state.current_mid + tick)
@@ -345,64 +358,69 @@ class MarketModel:
                     all_trades.extend(trs)
 
             # (B) Wash trading cycles
-            # Schedule periodic matched trades along cycle: A -> B -> C -> A
             wash_cycles = self.ring_spec.wash_cycles
-            if wash_cycles and pump_start <= sim_time_s < dump_start:
-                if self.rng.random() < 0.4:
-                    cycle = wash_cycles[self.rng.integers(0, len(wash_cycles))]
+            if wash_cycles and (scenario_id == "wash_ring_01" or pump_start <= sim_time_s < dump_start):
+                interval_s = 20.0
+                c_idx = int(sim_time_s // interval_s) - 1
+                if sim_time_s >= 20.0 and (sim_time_s % interval_s) < dt_s and 0 <= c_idx < len(wash_cycles):
+                    cycle = wash_cycles[c_idx]
                     acc_ids = cycle["accounts"]
-                    qty = cycle["qty"]
-                    step_idx = int(sim_time_s // 10) % len(acc_ids)
-                    seller_id = acc_ids[step_idx]
-                    buyer_id = acc_ids[(step_idx + 1) % len(acc_ids)]
-
-                    # Find ring account objects
-                    seller = next(a for a in self.ring_spec.accounts if a.account_id == seller_id)
-                    buyer = next(a for a in self.ring_spec.accounts if a.account_id == buyer_id)
-
+                    qty = int(cycle["qty"])
                     wash_price = round(target_state.current_mid, 2)
-                    self.order_counter += 1
-                    sell_oid = f"O-WASH-S-{self.order_counter:09d}"
-                    self.order_counter += 1
-                    buy_oid = f"O-WASH-B-{self.order_counter:09d}"
 
-                    # Seller places limit
-                    s_l3, _ = target_state.book.add_order(
-                        order_id=sell_oid,
-                        side="SELL",
-                        price=wash_price,
-                        qty=qty,
-                        account_id=seller.account_id,
-                        broker_id=seller.broker_id,
-                        ts_exchange=current_iso_time,
-                        gateway_id=seller.gateway_id,
-                        device_fp=seller.device_fp,
-                        ip_hash=seller.ip_hash,
-                        asn=seller.asn,
-                        scenario_label=scenario_id,
-                    )
-                    all_l3.extend(s_l3)
+                    # Execute all legs of the cycle so the circular trade closes
+                    for step_idx in range(len(acc_ids)):
+                        seller_id = acc_ids[step_idx]
+                        buyer_id = acc_ids[(step_idx + 1) % len(acc_ids)]
 
-                    # Buyer immediately takes it
-                    b_l3, b_trs = target_state.book.add_order(
-                        order_id=buy_oid,
-                        side="BUY",
-                        price=wash_price,
-                        qty=qty,
-                        account_id=buyer.account_id,
-                        broker_id=buyer.broker_id,
-                        ts_exchange=current_iso_time,
-                        gateway_id=buyer.gateway_id,
-                        device_fp=buyer.device_fp,
-                        ip_hash=buyer.ip_hash,
-                        asn=buyer.asn,
-                        scenario_label=scenario_id,
-                    )
-                    all_l3.extend(b_l3)
-                    all_trades.extend(b_trs)
-                    for tr in b_trs:
-                        if self.ground_truth:
-                            self.ground_truth.wash_trade_ids.append(tr.trade_id)
+                        seller = next((a for a in self.ring_spec.accounts if a.account_id == seller_id), None)
+                        buyer = next((a for a in self.ring_spec.accounts if a.account_id == buyer_id), None)
+                        if not seller or not buyer:
+                            continue
+
+                        self.order_counter += 1
+                        sell_oid = f"O-WASH-S-{self.order_counter:09d}"
+                        self.order_counter += 1
+                        buy_oid = f"O-WASH-B-{self.order_counter:09d}"
+
+                        # Seller places limit
+                        s_l3, _ = target_state.book.add_order(
+                            order_id=sell_oid,
+                            side="SELL",
+                            price=wash_price,
+                            qty=qty,
+                            account_id=seller.account_id,
+                            broker_id=seller.broker_id,
+                            ts_exchange=current_iso_time,
+                            gateway_id=seller.gateway_id,
+                            device_fp=seller.device_fp,
+                            ip_hash=seller.ip_hash,
+                            asn=seller.asn,
+                            scenario_label=scenario_id,
+                        )
+                        all_l3.extend(s_l3)
+
+                        # Buyer immediately takes it
+                        b_l3, b_trs = target_state.book.add_order(
+                            order_id=buy_oid,
+                            side="BUY",
+                            price=wash_price,
+                            qty=qty,
+                            account_id=buyer.account_id,
+                            broker_id=buyer.broker_id,
+                            ts_exchange=current_iso_time,
+                            gateway_id=buyer.gateway_id,
+                            device_fp=buyer.device_fp,
+                            ip_hash=buyer.ip_hash,
+                            asn=buyer.asn,
+                            scenario_label=scenario_id,
+                            match_order_id=sell_oid,
+                        )
+                        all_l3.extend(b_l3)
+                        all_trades.extend(b_trs)
+                        for tr in b_trs:
+                            if self.ground_truth:
+                                self.ground_truth.wash_trade_ids.append(tr.trade_id)
 
             # (C) Coordinated dump selling
             if sim_time_s >= dump_start:
@@ -428,5 +446,63 @@ class MarketModel:
                     )
                     all_l3.extend(l3s)
                     all_trades.extend(trs)
+
+        # 3. Spoofing cycles (if active)
+        if self.spoofer_accounts and target_symbol and target_symbol in self.symbols_state:
+            target_state = self.symbols_state[target_symbol]
+            cycles = int(self.scenario_cfg.get("spoofers", {}).get("cycles", 8))
+            interval = max(30.0, 900.0 / max(1, cycles))
+            if sim_time_s >= 10.0 and (sim_time_s % interval) < dt_s:
+                for sp_acc in self.spoofer_accounts:
+                    best_bid = target_state.book.best_bid() or target_state.current_mid
+                    tick = 0.05
+                    spoof_oids: list[str] = []
+                    # Layer 5 large BUY orders below best bid
+                    for l_idx in range(1, 6):
+                        self.order_counter += 1
+                        oid = f"O-SPOOF-{self.order_counter:09d}"
+                        spoof_oids.append(oid)
+                        spoof_p = round(best_bid - l_idx * tick, 2)
+                        s_l3, _ = target_state.book.add_order(
+                            order_id=oid,
+                            side="BUY",
+                            price=spoof_p,
+                            qty=3000,
+                            account_id=sp_acc.account_id,
+                            broker_id=sp_acc.broker_id,
+                            ts_exchange=current_iso_time,
+                            gateway_id=sp_acc.gateway_id,
+                            device_fp=sp_acc.device_fp,
+                            ip_hash=sp_acc.ip_hash,
+                            asn=sp_acc.asn,
+                            scenario_label=scenario_id,
+                        )
+                        all_l3.extend(s_l3)
+
+                    # Opposite-side aggressive SELL order crossing best bid
+                    self.order_counter += 1
+                    exec_oid = f"O-SPOOF-EXEC-{self.order_counter:09d}"
+                    ex_l3, ex_tr = target_state.book.add_order(
+                        order_id=exec_oid,
+                        side="SELL",
+                        price=round(best_bid, 2),
+                        qty=200,
+                        account_id=sp_acc.account_id,
+                        broker_id=sp_acc.broker_id,
+                        ts_exchange=current_iso_time,
+                        gateway_id=sp_acc.gateway_id,
+                        device_fp=sp_acc.device_fp,
+                        ip_hash=sp_acc.ip_hash,
+                        asn=sp_acc.asn,
+                        scenario_label=scenario_id,
+                    )
+                    all_l3.extend(ex_l3)
+                    all_trades.extend(ex_tr)
+
+                    # Cancel the layered BUY orders
+                    for c_oid in spoof_oids:
+                        c_ev = target_state.book.cancel_order(c_oid, current_iso_time)
+                        if c_ev:
+                            all_l3.append(c_ev)
 
         return all_l3, all_trades, all_l2

@@ -8,12 +8,12 @@ import signal
 import uuid
 from pathlib import Path
 from typing import Any
+
 import asyncpg
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from neo4j import AsyncGraphDatabase
-
-from vigil_common.logging import get_logger, setup_logging
 from vigil_common.evidence import EvidenceEngine
+from vigil_common.logging import get_logger, setup_logging
 
 logger = get_logger("orchestrator")
 
@@ -133,6 +133,8 @@ class CaseOrchestrator:
             return str(row["case_id"]) if row else None
 
     async def _create_case(self, symbol: str, trigger_anom_id: str) -> str:
+        if not self.pool:
+            return ""
         case_id = str(uuid.uuid4())
         now_dt = datetime.datetime.now(datetime.timezone.utc)
         start_dt = now_dt - datetime.timedelta(hours=1)

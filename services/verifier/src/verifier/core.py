@@ -2,16 +2,17 @@ import json
 import zipfile
 from pathlib import Path
 from typing import Any
+
 from vigil_common.canonical import canonical_json_bytes
-from vigil_common.hashing import sha256_hex, sha256_bytes
+from vigil_common.hashing import sha256_bytes, sha256_hex
 from vigil_common.ledger import verify_ledger_chain
 from vigil_common.merkle import compute_merkle_root
 from vigil_common.signing import verify_ed25519
 
 
 def verify_bundle(bundle_path: str | Path, pubkey_pem: str | None = None) -> dict[str, Any]:
-    checks = []
-    failed = []
+    checks: list[dict[str, Any]] = []
+    failed: list[str] = []
 
     try:
         with zipfile.ZipFile(bundle_path, "r") as zf:

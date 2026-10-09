@@ -2,7 +2,6 @@
 import argparse
 import asyncio
 import time
-import sys
 
 
 async def run_load_test(rate: int, duration: int) -> None:

@@ -1,6 +1,8 @@
 import asyncio
 from pathlib import Path
+
 from neo4j import AsyncGraphDatabase
+
 from vigil_common.config import get_settings
 from vigil_common.logging import get_logger, setup_logging
 

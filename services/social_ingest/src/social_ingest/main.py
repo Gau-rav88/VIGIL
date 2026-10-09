@@ -7,10 +7,9 @@ import hmac
 import json
 import os
 import signal
-from typing import Any
+
 import websockets
 from aiokafka import AIOKafkaProducer
-
 from vigil_common.logging import get_logger, setup_logging
 
 logger = get_logger("social_ingest")

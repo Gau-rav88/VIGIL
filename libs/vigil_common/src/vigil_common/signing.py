@@ -1,8 +1,9 @@
 import base64
 from pathlib import Path
 from typing import Protocol
-from cryptography.hazmat.primitives.asymmetric import ed25519
+
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ed25519
 
 
 class Signer(Protocol):
@@ -20,9 +21,10 @@ class FileEd25519Signer:
         self.key_id = key_id
         self._key_path = Path(key_path)
         with open(self._key_path, "rb") as f:
-            self._priv_key = serialization.load_pem_private_key(f.read(), password=None)
-        if not isinstance(self._priv_key, ed25519.Ed25519PrivateKey):
+            raw_key = serialization.load_pem_private_key(f.read(), password=None)
+        if not isinstance(raw_key, ed25519.Ed25519PrivateKey):
             raise ValueError(f"Key in {key_path} is not an Ed25519 private key")
+        self._priv_key: ed25519.Ed25519PrivateKey = raw_key
 
     def sign(self, digest: bytes) -> bytes:
         return self._priv_key.sign(digest)

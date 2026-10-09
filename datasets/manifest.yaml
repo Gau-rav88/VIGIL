@@ -1,0 +1,43 @@
+# Project VIGIL Dataset Manifest
+# Format: logical name -> repo path -> SHA-256 -> license note -> is_synthetic -> target schema
+
+datasets:
+  market_trades:
+    repo_path: "market/trades.ndjson.zst"
+    sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    license: "CC-BY-4.0"
+    is_synthetic: true
+    target_schema: "trade_tick.schema.json"
+    description: "Benchmark SME and large-cap trade flow ticks"
+
+  market_l2:
+    repo_path: "market/l2_snapshots.ndjson.zst"
+    sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    license: "CC-BY-4.0"
+    is_synthetic: true
+    target_schema: "l2_snapshot.schema.json"
+    description: "L2 limit order book depth snapshots"
+
+  social_messages:
+    repo_path: "social/messages.jsonl"
+    sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    license: "Public Domain"
+    is_synthetic: true
+    target_schema: "social_message.schema.json"
+    description: "Public chat messages with cashtags and hype signals"
+
+  social_labeled_v1:
+    repo_path: "social/social_labeled_v1.jsonl"
+    sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    license: "Research Use Only"
+    is_synthetic: true
+    target_schema: "social_signal.schema.json"
+    description: "500-row labeled gold standard for ticker extraction and CTA classification"
+
+  ground_truth_cases:
+    repo_path: "cases/ground_truth_cases.json"
+    sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    license: "Internal Evaluation"
+    is_synthetic: true
+    target_schema: "forensic_dossier.schema.json"
+    description: "Ground truth scenario windows and ring accounts"

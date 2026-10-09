@@ -74,6 +74,7 @@ frontend/build/
 
 # Data & logs
 data/
+datasets/data/
 *.log
 scratch/
 /tmp/

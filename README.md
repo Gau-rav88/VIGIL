@@ -8,8 +8,26 @@
 
 ## Documentation
 
-- **[PRD.md](file:///Users/gauravchauhan/subway_suffer/PRD.md)** — Requirements, functional specifications, data schemas (Draft 2020-12), and acceptance criteria.
-- **[ARCHITECTURE.md](file:///Users/gauravchauhan/subway_suffer/ARCHITECTURE.md)** — Technical source of truth, topology, algorithms, Cypher queries, data contracts, and implementation blueprints.
+- **[PRD.md](PRD.md)** — Requirements v2.0.0, functional specifications, data schemas, 8 gated phases, and acceptance criteria.
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** — Technical source of truth, topology, algorithms, Cypher queries, data contracts, and implementation blueprints.
+- **[FLOW.md](FLOW.md)** — End-to-end data and decision hops $S0 \to S13$, scenario walkthroughs, and error recovery.
+- **[FRONTEND.md](FRONTEND.md)** — UI design specifications, design tokens, screen layouts, and component architecture.
+- **[PHASE_STATE.md](PHASE_STATE.md)** — Live progress ledger tracking environment state, dataset receipts, and phase gate results.
+
+---
+
+## 8 Gated Phases
+
+| Phase | Description | Gate Command |
+|---|---|---|
+| **Phase 1** | Foundation, Infrastructure & Data Layer | `make gate PHASE=1` |
+| **Phase 2** | Market Microstructure Telemetry & Detectors | `make gate PHASE=2` |
+| **Phase 3** | Social Intelligence & Semantic Parsing | `make gate PHASE=3` |
+| **Phase 4** | Cross-Modal Temporal Alignment & MRS | `make gate PHASE=4` |
+| **Phase 5** | Cyber-Forensics Graph Attribution | `make gate PHASE=5` |
+| **Phase 6** | LangGraph Orchestration & Cryptographic Evidence | `make gate PHASE=6` |
+| **Phase 7** | REST/WS Gateway & Investigator UI Workbench | `make gate PHASE=7` |
+| **Phase 8** | Hardening, Observability, Verification & Release | `make gate PHASE=8` |
 
 ---
 

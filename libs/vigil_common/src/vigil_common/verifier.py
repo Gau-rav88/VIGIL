@@ -13,8 +13,8 @@ from vigil_common.signing import verify_ed25519
 
 
 def verify_bundle(bundle_path: str | Path, pubkey_pem: str | None = None) -> dict[str, Any]:
-    checks = []
-    failed = []
+    checks: list[dict[str, Any]] = []
+    failed: list[str] = []
 
     try:
         with zipfile.ZipFile(bundle_path, "r") as zf:

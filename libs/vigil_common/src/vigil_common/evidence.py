@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import base64
 import datetime
-import hashlib
 import io
 import json
 import os
@@ -10,6 +9,7 @@ import uuid
 import zipfile
 from pathlib import Path
 from typing import Any
+
 import asyncpg
 
 from vigil_common.canonical import canonical_json_bytes

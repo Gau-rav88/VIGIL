@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import collections
 import datetime
 import hashlib
 import json
@@ -8,8 +9,8 @@ import os
 import signal
 import uuid
 from typing import Any
-from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 
+from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from vigil_common.logging import get_logger, setup_logging
 from vigil_common.models.anomaly import AnomalyEvent, EvidenceRef
 

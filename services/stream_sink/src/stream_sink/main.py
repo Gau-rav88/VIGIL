@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import asyncio
 import datetime
-from decimal import Decimal
 import json
 import os
 import signal
 import uuid
+from decimal import Decimal
 from typing import Any
+
 import asyncpg
 from aiokafka import AIOKafkaConsumer
-
 from vigil_common.logging import get_logger, setup_logging
 
 logger = get_logger("stream_sink")
@@ -97,7 +97,7 @@ class StreamSink:
             if topic == "market.trades.norm":
                 buyer = data.get("buyer") or {}
                 seller = data.get("seller") or {}
-                row = (
+                trade_row = (
                     parse_dt(data.get("ts_exchange")),
                     uuid.UUID(data.get("event_id")),
                     data.get("exchange", "SYNTH"),
@@ -129,10 +129,10 @@ class StreamSink:
                     bool(data.get("is_synthetic", False)),
                     parse_dt(data.get("ts_ingest")),
                 )
-                self.trade_batch.append(row)
+                self.trade_batch.append(trade_row)
 
             elif topic == "market.l3.norm":
-                row = (
+                l3_row = (
                     parse_dt(data.get("ts_exchange")),
                     uuid.UUID(data.get("event_id")),
                     data.get("exchange", "SYNTH"),
@@ -157,10 +157,10 @@ class StreamSink:
                     bool(data.get("is_synthetic", False)),
                     parse_dt(data.get("ts_ingest")),
                 )
-                self.l3_batch.append(row)
+                self.l3_batch.append(l3_row)
 
             elif topic == "market.l2.norm":
-                row = (
+                l2_row = (
                     parse_dt(data.get("ts_exchange")),
                     data.get("symbol", "UNKNOWN"),
                     int(data.get("seq", 0)),
@@ -170,10 +170,10 @@ class StreamSink:
                     int(data.get("depth_levels", 10)),
                     bool(data.get("is_synthetic", False)),
                 )
-                self.l2_batch.append(row)
+                self.l2_batch.append(l2_row)
 
             elif topic == "social.messages.raw":
-                row = (
+                social_row = (
                     parse_dt(data.get("ts_posted")),
                     uuid.UUID(data.get("event_id")),
                     data.get("platform", "telegram"),
@@ -193,7 +193,7 @@ class StreamSink:
                     bool(data.get("is_synthetic", False)),
                     parse_dt(data.get("ts_ingest")),
                 )
-                self.social_batch.append(row)
+                self.social_batch.append(social_row)
 
         except Exception as exc:
             logger.error("Error buffering record", topic=topic, error=str(exc))

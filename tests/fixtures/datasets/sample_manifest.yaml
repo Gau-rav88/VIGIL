@@ -1,0 +1,7 @@
+datasets:
+  test_messages:
+    repo_path: "sample_messages.jsonl"
+    sha256: "test"
+    license: "MIT"
+    is_synthetic: true
+    target_schema: "social_message.schema.json"

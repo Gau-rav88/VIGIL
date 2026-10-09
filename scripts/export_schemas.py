@@ -7,10 +7,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "libs" / "vigil_common" / "src"))
 
-from vigil_common.models.market import TradeTick, L2Snapshot, L3OrderEvent
-from vigil_common.models.social import SocialMessage, SocialSignal
 from vigil_common.models.anomaly import AnomalyEvent
 from vigil_common.models.dossier import ForensicDossier
+from vigil_common.models.market import L2Snapshot, L3OrderEvent, TradeTick
+from vigil_common.models.social import SocialMessage, SocialSignal
 
 SCHEMA_MAP = {
     "trade_tick.schema.json": TradeTick,

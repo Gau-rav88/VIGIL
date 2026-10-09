@@ -27,7 +27,7 @@ wash_cycle:
   cycle_window_s: 900
   qty_tol: 0.05
   price_tol: 0.005
-  max_len: 4
+  max_len: 5
 
 sync_orders:
   bin_ms: 500

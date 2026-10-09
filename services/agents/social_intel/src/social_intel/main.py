@@ -10,8 +10,8 @@ import re
 import signal
 import uuid
 from typing import Any
-from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 
+from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from vigil_common.logging import get_logger, setup_logging
 from vigil_common.models.anomaly import AnomalyEvent, EvidenceRef
 from vigil_common.models.social import ParserMetadata, SocialSignal

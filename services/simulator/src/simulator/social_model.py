@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import hashlib
-import os
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-import numpy as np
 
+import numpy as np
 from vigil_common.models.social import SocialMessage
+
 from simulator.ring import generate_id
 
 
@@ -135,7 +135,7 @@ class SocialModel:
 
                 msg = SocialMessage(
                     schema_version="1.0.0",
-                    event_id=str(uuid.uuid4()),
+                    event_id=str(uuid.uuid5(uuid.NAMESPACE_OID, f"social:{ch.channel_id}:{self.msg_seq}")),
                     platform=ch.platform,  # type: ignore[arg-type]
                     channel_id=ch.channel_id,
                     channel_name=ch.name,
@@ -171,7 +171,7 @@ class SocialModel:
 
             msg = SocialMessage(
                 schema_version="1.0.0",
-                event_id=str(uuid.uuid4()),
+                event_id=str(uuid.uuid5(uuid.NAMESPACE_OID, f"social:{ch.channel_id}:{self.msg_seq}")),
                 platform=ch.platform,  # type: ignore[arg-type]
                 channel_id=ch.channel_id,
                 channel_name=ch.name,

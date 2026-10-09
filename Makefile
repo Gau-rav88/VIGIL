@@ -43,3 +43,9 @@ chaos:
 
 verify:
 	@uv run vigil-verify $(BUNDLE) --pubkey keys/dev_ed25519.pub
+
+datasets:
+	@./scripts/fetch_datasets.sh
+
+gate:
+	@./scripts/gates/phase_$(PHASE).sh

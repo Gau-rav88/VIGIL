@@ -1,21 +1,19 @@
 from __future__ import annotations
 
-import io
-import json
+import datetime
 import os
 import uuid
-from pathlib import Path
 from typing import Any
+
 import asyncpg
 import jwt
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
-
+from pydantic import BaseModel
 from vigil_common.config import get_settings
-from vigil_common.timeutil import now_utc
 from vigil_common.evidence import EvidenceEngine
+from vigil_common.timeutil import now_utc
 from vigil_common.verifier import verify_bundle
 
 app = FastAPI(title="Project VIGIL API", version="1.0.0")
@@ -243,6 +241,9 @@ async def verify_dossier_endpoint(dossier_id: str) -> dict[str, Any]:
         dossier_data["dossier_id"] = dossier_id
         bundle_cache[dossier_id] = bundle_bytes
         dossier_cache[dossier_id] = dossier_data
+
+    if not bundle_bytes:
+        raise HTTPException(status_code=404, detail="Bundle not found")
 
     import tempfile
     with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:

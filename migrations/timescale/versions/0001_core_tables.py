@@ -1,12 +1,11 @@
 """Core tables, hypertables, continuous aggregates, and evidence ledger
 
 Revision ID: 0001
-Revises: 
+Revises: None
 Create Date: 2026-10-07 00:00:00.000000
 
 """
 from alembic import op
-import sqlalchemy as sa
 
 revision = '0001'
 down_revision = None

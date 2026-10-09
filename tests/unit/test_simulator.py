@@ -1,11 +1,7 @@
 import numpy as np
-import pytest
-
-from simulator.orderbook import OrderBook
-from simulator.ring import build_ring, generate_id
 from simulator.market_model import MarketModel
-from simulator.social_model import SocialModel
-from simulator.groundtruth import ScenarioGroundTruth
+from simulator.orderbook import OrderBook
+from simulator.ring import build_ring
 
 
 def test_orderbook_matching() -> None:

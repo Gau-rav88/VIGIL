@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import uvicorn
-from simulator.server import app
 
 
 def main() -> None:
