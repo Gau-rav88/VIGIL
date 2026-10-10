@@ -69,9 +69,12 @@ services:
       - ./keys:/keys:ro
 
   api:
+    environment:
+      PYTHONPATH: "/app/libs/vigil_common/src:/app/services/api/src:/app/services/agents/attribution/src:/app/services/verifier/src"
     volumes:
       - ./libs:/app/libs
       - ./services/api:/app/services/api
+      - ./services/agents/attribution:/app/services/agents/attribution
       - ./services/verifier:/app/services/verifier
       - ./config:/app/config:ro
       - ./keys:/keys:ro

@@ -6,6 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     "vigil-common",
     "verifier",
+    "attribution",
     "fastapi>=0.111.0",
     "uvicorn[standard]>=0.30.0",
     "pyjwt>=2.8.0",

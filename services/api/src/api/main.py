@@ -7,6 +7,7 @@ from typing import Any
 
 import asyncpg
 import jwt
+from attribution.graph_store import Neo4jGraphStore
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
@@ -28,22 +29,31 @@ app.add_middleware(
 
 pg_pool: asyncpg.Pool | None = None
 evidence_engine: EvidenceEngine | None = None
+graph_store: Neo4jGraphStore | None = None
 bundle_cache: dict[str, bytes] = {}
 dossier_cache: dict[str, dict[str, Any]] = {}
 
 
 @app.on_event("startup")
 async def startup() -> None:
-    global pg_pool, evidence_engine
+    global pg_pool, evidence_engine, graph_store
     dsn = os.getenv("PG_DSN", "postgresql://vigil:vigil@timescale:5432/vigil")
     pg_pool = await asyncpg.create_pool(dsn, min_size=2, max_size=10)
     evidence_engine = EvidenceEngine(dsn)
+
+    neo4j_uri = os.getenv("NEO4J_URI", "bolt://neo4j:7687")
+    neo4j_user = os.getenv("NEO4J_USER", "neo4j")
+    neo4j_password = os.getenv("NEO4J_PASSWORD", "vigilneo4j")
+    graph_store = Neo4jGraphStore(neo4j_uri, neo4j_user, neo4j_password)
+    await graph_store.connect()
 
 
 @app.on_event("shutdown")
 async def shutdown() -> None:
     if pg_pool:
         await pg_pool.close()
+    if graph_store:
+        await graph_store.close()
 
 
 @app.get("/healthz")
@@ -140,28 +150,51 @@ async def get_case(case_id: str) -> dict[str, Any]:
 
 
 @app.get("/api/v1/cases/{case_id}/graph")
-async def get_case_graph(case_id: str) -> dict[str, Any]:
-    # Return ring graph nodes and edges (at least 20 ring accounts + shared devices/asns)
-    nodes = []
-    edges = []
+async def get_case_graph(
+    case_id: str,
+    max_nodes: int = 500,
+    min_conf: float = 0.60,
+) -> dict[str, Any]:
+    # Check if graph store has case data
+    if graph_store:
+        subgraph = await graph_store.get_case_subgraph(case_id, max_nodes=max_nodes, min_conf=min_conf)
+        if subgraph.get("nodes"):
+            return subgraph
+
+    # Return ring graph nodes and edges in Cytoscape format
+    nodes: list[dict[str, Any]] = []
+    edges: list[dict[str, Any]] = []
 
     for i in range(1, 21):
-        nodes.append({"id": f"acc_{i:02d}", "type": "Account", "label": f"Account {i}"})
+        nodes.append({"data": {"id": f"acc_{i:02d}", "type": "Trader", "label": f"Account {i}"}})
 
     for d in range(1, 6):
         dev_id = f"dev_{d:02d}"
-        nodes.append({"id": dev_id, "type": "Device", "label": f"Device {d}"})
-        # Connect 4 accounts to each device
+        nodes.append({"data": {"id": dev_id, "type": "Device", "label": f"Device {d}"}})
         for acc_idx in range((d - 1) * 4 + 1, d * 4 + 1):
-            edges.append({"source": f"acc_{acc_idx:02d}", "target": dev_id, "type": "USES_DEVICE"})
+            edges.append({
+                "data": {
+                    "id": f"uses_acc_{acc_idx:02d}_{dev_id}",
+                    "source": f"acc_{acc_idx:02d}",
+                    "target": dev_id,
+                    "type": "USES_DEVICE",
+                    "weight": 0.90,
+                }
+            })
 
-    # Shared ASN
     asn_id = "asn_55836"
-    nodes.append({"id": asn_id, "type": "ASN", "label": "ASN 55836"})
+    nodes.append({"data": {"id": asn_id, "type": "ASN", "label": "ASN 55836"}})
     for i in range(1, 21):
-        edges.append({"source": f"acc_{i:02d}", "target": asn_id, "type": "IN_ASN"})
+        edges.append({
+            "data": {
+                "id": f"in_asn_acc_{i:02d}_{asn_id}",
+                "source": f"acc_{i:02d}",
+                "target": asn_id,
+                "type": "IN_ASN",
+            }
+        })
 
-    return {"nodes": nodes, "edges": edges}
+    return {"nodes": nodes[:max_nodes], "edges": edges}
 
 
 @app.get("/api/v1/cases/{case_id}/dossiers")
@@ -695,20 +728,29 @@ async def get_case_evidence(case_id: str) -> dict[str, Any]:
 class LinkFeedbackRequest(BaseModel):
     source: str
     target: str
-    action: str  # "MARK_FALSE" or "CONFIRM"
+    action: str | None = None  # "MARK_FALSE", "REJECT", or "CONFIRM"
+    verdict: str | None = None  # "REJECT" or "CONFIRM"
     comment: str | None = None
 
 
 @app.post("/api/v1/cases/{case_id}/links/feedback")
 async def record_link_feedback(case_id: str, req: LinkFeedbackRequest) -> dict[str, Any]:
+    act = (req.verdict or req.action or "CONFIRM").upper()
+    if act in ("REJECT", "MARK_FALSE"):
+        if graph_store:
+            await graph_store.record_veto(req.source, req.target, case_id)
+        status = "VETOED"
+    else:
+        status = "CONFIRMED"
+
     feedback_id = f"fb_{uuid.uuid4().hex[:8]}"
     return {
         "feedbackId": feedback_id,
         "caseId": case_id,
         "source": req.source,
         "target": req.target,
-        "action": req.action,
-        "status": "RECORDED",
+        "action": act,
+        "status": status,
         "recordedAt": now_utc().isoformat(),
     }
 

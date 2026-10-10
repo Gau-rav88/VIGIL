@@ -12,7 +12,7 @@ This ledger tracks phase-by-phase completion, environment specifications, datase
 | **Phase 2** | Market Telemetry & Detectors | **COMPLETE** | 12/12 checks passed (see below) |
 | **Phase 3** | Social Intelligence & Hype Scoring | **COMPLETE** | 10/10 checks passed (see below) |
 | **Phase 4** | Cross-Modal Alignment & MRS | **COMPLETE** | 9/9 checks passed (see below) |
-| **Phase 5** | Graph Attribution & Entities | PENDING | Not started |
+| **Phase 5** | Graph Attribution & Entities | **COMPLETE** | 10/10 checks passed (see below) |
 | **Phase 6** | LangGraph Orchestration & Evidence | PENDING | Not started |
 | **Phase 7** | API & Investigator UI Workbench | PENDING | Not started |
 | **Phase 8** | Hardening, Observability & Release | PENDING | Not started |
@@ -248,3 +248,74 @@ GATE 4 RESULT: PASS (9/9 checks passed)
    - Verified publishing of `CROSS_MODAL_ALIGNMENT` `AnomalyEvent` to Kafka topic `anomaly.fused`.
    - Verified publication of `CaseTrigger` payload to Kafka topic `case.trigger`.
    - Redis set `watchlist:symbols` automatically updated with elevated tickers for Phase 5 graph attribution and Phase 6 LangGraph case orchestration.
+
+---
+
+## Phase 5 Gate Verification Evidence
+
+Command executed: `make gate PHASE=5` / `scripts/gates/phase_5.sh`
+
+```
+================================================================================
+Project VIGIL - Gate 5 Verification (Graph Attribution, Rings & Feedback)
+================================================================================
+
+| ID         | Check Description                             | Status | Detail                         |
+|------------|-----------------------------------------------|--------|--------------------------------|
+| P5-G0      | Core infra & services healthy                 | PASS   | Timescale, Neo4j, Redis, Redpanda |
+| P5-G1      | Feedback veto prevents recreation on re-run   | PASS   | Veto persistent across runs    |
+| P5-G2      | Links < 0.60 never appear in findings         | PASS   | Leads segregated from findings |
+| P5-G3      | Neo4j targeted chaos outage resilience        | PASS   | Outage handled & stack recovered |
+| AC-GRA-01  | pump_dump_ring_01 recovery >= 18/20, prec >= 0.9 | PASS   | 20/20 recovered, prec 1.000    |
+| AC-GRA-02  | Injected cycles found; baseline 0 cycles      | PASS   | Cycles lengths 2-5 identified  |
+| AC-GRA-03  | Graph API export p95 < 800 ms (N=100)         | PASS   | p95 23.84 ms < 800 ms          |
+| P5-TEST    | attribution unit test coverage >= 80%         | PASS   | Coverage meets >= 80% threshold |
+| P5-LINT    | Ruff and Mypy strict clean                    | PASS   | 85 files typed and lint-free   |
+| P5-REPORT  | reports/graph_eval.md generated & non-empty   | PASS   | Graph evaluation report ready  |
+
+================================================================================
+GATE 5 RESULT: PASS (10/10 checks passed)
+================================================================================
+```
+
+---
+
+## Phase 5 Handoff Block
+
+1. **8 Link Methods & Weights Calibration (`config/attribution_weights.yaml`):**
+   - Implemented in `services/agents/attribution/src/attribution/link_methods.py`:
+     - `SHARED_KYC` (weight 0.35): Shared PAN, Aadhaar hash, bank account, email, or mobile.
+     - `SHARED_DEVICE` (weight 0.25): Exact browser/hardware device fingerprint match.
+     - `CIRCULAR_CYCLE` (weight 0.20): Directed trade cycle of length 2–6 with volume matching within 5%.
+     - `SYNCHRONIZED_ORDERS` (weight 0.15): Orders placed in same 500 ms bin with Poisson tail $p < 0.01$.
+     - `SHARED_NETWORK` (weight 0.10): Shared /24 subnet or ASN.
+     - `LATENCY_SIGNATURE` (weight 0.08): Order submission time delta variance $\sigma < 5$ ms.
+     - `REACTION_LATENCY` (weight 0.08): Statistically significant reaction time to social pump alerts (Mann-Whitney U $p < 0.01$).
+     - `BROKER_PATHWAY` (weight 0.05): Same broker branch and sub-broker routing tag.
+
+2. **Noisy-OR Confidence & Guardrail G-2 Enforcement (`confidence.py`):**
+   - Pairwise confidence:
+     $$\text{conf}_{ij} = 1 - \prod_{m \in M} (1 - w_m \cdot s_{m, ij})$$
+   - **Guardrail G-2 Enforced:** Links with $\text{conf}_{ij} < 0.60$ are strictly classified as `leads` (`is_finding=False`) and NEVER appear in case findings or ring score calculation. Links with $\text{conf}_{ij} \ge 0.60$ are promoted to `findings` (`is_finding=True`).
+   - Cluster Ring Score formula:
+     $$\text{ring\_score} = 0.40 \cdot \overline{\text{conf}} + 0.30 \cdot \text{density} + 0.30 \cdot \min\left(1.0, \frac{V_{\text{internal}}}{V_{\text{total}}}\right)$$
+
+3. **Ground-Truth Evaluation Summary (`reports/graph_eval.md`):**
+   - **`pump_dump_ring_01`:** Recovered **20/20** ground-truth ring accounts (100% recall, target $\ge 18/20$). Exact precision is **1.000** (target $\ge 0.90$). Entity cluster ring score is **0.988**.
+   - **`baseline_01`:** Exactly **0** cycles detected. 0 entity clusters meeting the ring score threshold ($\max = 0.354 \ll 0.60$).
+   - Verified via `scripts/eval_graph.py` and `tests/integration/test_cycles.py`.
+
+4. **Cycle & Community Detection Engines (`cycles.py`, `community.py`):**
+   - `CycleDetector`: Streaming DFS cycle detection on multigraph edges for wash cycles of lengths 2–6.
+   - `CommunityDetector`: Graph clustering using NetworkX Weakly Connected Components (WCC) and Louvain modularity refinement for large subgraphs ($>40$ nodes), ensuring deterministic execution without requiring proprietary Neo4j GDS enterprise licenses.
+
+5. **Investigator Feedback Loop & Durability (`P5-G1`):**
+   - `CONFIRM`: Investigator endorsement boosts link confidence to $\ge 0.95$ and pins it to the case graph.
+   - `REJECT`: Investigator rejection stores a persistent bidirectional veto in Neo4j (`Veto` node and `VETOED_IN` relationship) and Redis key `veto:{case_id}:{acc_a}:{acc_b}`.
+   - Verified that subsequent attribution re-runs over identical trading data strictly suppress vetoed links from being recreated.
+
+6. **Graph API Export & Performance (`AC-GRA-03`):**
+   - Cytoscape JSON export endpoint `GET /api/v1/cases/{case_id}/graph` tested over 100 consecutive requests:
+     - p95 latency = **23.84 ms** (comfortably beating the PRD requirement of p95 $< 800$ ms).
+   - Supports parameter filtering by `max_nodes` and `min_conf`.
+

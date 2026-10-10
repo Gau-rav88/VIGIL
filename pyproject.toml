@@ -22,6 +22,7 @@ members = [
 [tool.uv.sources]
 vigil-common = { workspace = true }
 verifier = { workspace = true }
+attribution = { workspace = true }
 
 [tool.ruff]
 line-length = 100

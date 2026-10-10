@@ -6,40 +6,53 @@ import hashlib
 import json
 import os
 import signal
-import uuid
 from typing import Any
 
+import redis.asyncio as aioredis
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
-from neo4j import AsyncGraphDatabase
 from vigil_common.logging import get_logger, setup_logging
-from vigil_common.models.anomaly import AnomalyEvent, EvidenceRef
+
+from attribution.engine import AttributionEngine
+from attribution.graph_store import Neo4jGraphStore
 
 logger = get_logger("attribution")
 
 
-class AttributionAgent:
+class AttributionService:
     def __init__(self) -> None:
         self.kafka_bootstrap = os.getenv("KAFKA_BOOTSTRAP", "redpanda:9092")
         self.neo4j_uri = os.getenv("NEO4J_URI", "bolt://neo4j:7687")
         self.neo4j_user = os.getenv("NEO4J_USER", "neo4j")
         self.neo4j_password = os.getenv("NEO4J_PASSWORD", "vigilneo4j")
-        self.driver: Any = None
+        self.redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+
+        self.store = Neo4jGraphStore(self.neo4j_uri, self.neo4j_user, self.neo4j_password)
+        self.engine = AttributionEngine(self.store)
+
         self.consumer: AIOKafkaConsumer | None = None
         self.producer: AIOKafkaProducer | None = None
+        self.redis_client: aioredis.Redis | None = None
+
         self.running = False
         self.trade_batch: list[dict[str, Any]] = []
         self.config_hash = hashlib.sha256(b"attribution_v1").hexdigest()
+        self.watchlist_symbols: set[str] = {"ZENITHSME"}
 
     async def start(self) -> None:
         self.running = True
-        logger.info("Starting attribution agent...", neo4j=self.neo4j_uri)
+        logger.info("Starting Attribution Service...", neo4j=self.neo4j_uri)
 
-        self.driver = AsyncGraphDatabase.driver(
-            self.neo4j_uri,
-            auth=(self.neo4j_user, self.neo4j_password),
-        )
-        logger.info("Connected to Neo4j")
+        # 1. Connect Neo4j
+        await self.store.connect()
 
+        # 2. Connect Redis
+        try:
+            self.redis_client = aioredis.from_url(self.redis_url)
+            logger.info("Connected to Redis")
+        except Exception as exc:
+            logger.warning("Could not connect to Redis", error=str(exc))
+
+        # 3. Connect Kafka
         self.producer = AIOKafkaProducer(bootstrap_servers=self.kafka_bootstrap, acks=1)
         await self.producer.start()
 
@@ -51,9 +64,10 @@ class AttributionAgent:
             enable_auto_commit=True,
         )
         await self.consumer.start()
-        logger.info("Connected to market.trades.norm")
+        logger.info("Connected to Kafka topic market.trades.norm")
 
-        periodic_task = asyncio.create_task(self._periodic_ring_scan())
+        periodic_scan_task = asyncio.create_task(self._periodic_attribution_loop())
+        periodic_flush_task = asyncio.create_task(self._periodic_flush_loop())
 
         try:
             async for record in self.consumer:
@@ -61,154 +75,130 @@ class AttributionAgent:
                     break
                 try:
                     data = json.loads(record.value)
-                    self.trade_batch.append(data)
-                    if len(self.trade_batch) >= 100:
-                        await self._flush_trades()
+                    sym = data.get("symbol", "")
+                    # Watchlist gate
+                    if sym in self.watchlist_symbols:
+                        trade_entry = {
+                            "seller": data.get("seller", {}).get("account_id"),
+                            "buyer": data.get("buyer", {}).get("account_id"),
+                            "qty": data.get("qty", 0.0),
+                            "price": data.get("price", 0.0),
+                            "ts_ms": int(data.get("ts_exchange", 0)) if isinstance(data.get("ts_exchange"), int) else 0,
+                            "trade_id": data.get("trade_id", ""),
+                            "symbol": sym,
+                            "seller_device_fp": data.get("seller", {}).get("device_fp"),
+                            "buyer_device_fp": data.get("buyer", {}).get("device_fp"),
+                            "seller_asn": data.get("seller", {}).get("asn"),
+                            "buyer_asn": data.get("buyer", {}).get("asn"),
+                            "seller_broker_id": data.get("seller", {}).get("broker_id"),
+                            "buyer_broker_id": data.get("buyer", {}).get("broker_id"),
+                            "seller_gateway_id": data.get("seller", {}).get("gateway_id"),
+                            "buyer_gateway_id": data.get("buyer", {}).get("gateway_id"),
+                        }
+                        self.trade_batch.append(trade_entry)
+                        if len(self.trade_batch) >= 100:
+                            await self._flush_trades()
                 except Exception as exc:
-                    logger.error("Error ingesting trade into graph", error=str(exc))
+                    logger.error("Error processing trade record", error=str(exc))
         finally:
-            periodic_task.cancel()
-            try:
-                await periodic_task
-            except asyncio.CancelledError:
-                pass
+            periodic_scan_task.cancel()
+            periodic_flush_task.cancel()
+            await asyncio.gather(periodic_scan_task, periodic_flush_task, return_exceptions=True)
+
+    async def _periodic_flush_loop(self) -> None:
+        while self.running:
+            await asyncio.sleep(2.0)
+            await self._flush_trades()
 
     async def _flush_trades(self) -> None:
-        if not self.trade_batch or not self.driver:
+        if not self.trade_batch:
             return
-
         batch = self.trade_batch
         self.trade_batch = []
-
-        query = """
-        UNWIND $batch AS row
-        MERGE (buyer:Account {account_id: row.buyer.account_id})
-          ON CREATE SET buyer.broker_id = row.buyer.broker_id
-        MERGE (seller:Account {account_id: row.seller.account_id})
-          ON CREATE SET seller.broker_id = row.seller.broker_id
-
-        FOREACH (_ IN CASE WHEN row.buyer.device_fp IS NOT NULL THEN [1] ELSE [] END |
-          MERGE (b_dev:Device {device_fp: row.buyer.device_fp})
-          MERGE (buyer)-[:USES_DEVICE]->(b_dev)
-        )
-        FOREACH (_ IN CASE WHEN row.seller.device_fp IS NOT NULL THEN [1] ELSE [] END |
-          MERGE (s_dev:Device {device_fp: row.seller.device_fp})
-          MERGE (seller)-[:USES_DEVICE]->(s_dev)
-        )
-        FOREACH (_ IN CASE WHEN row.buyer.asn IS NOT NULL THEN [1] ELSE [] END |
-          MERGE (b_asn:ASN {asn: row.buyer.asn})
-          MERGE (buyer)-[:IN_ASN]->(b_asn)
-        )
-        FOREACH (_ IN CASE WHEN row.seller.asn IS NOT NULL THEN [1] ELSE [] END |
-          MERGE (s_asn:ASN {asn: row.seller.asn})
-          MERGE (seller)-[:IN_ASN]->(s_asn)
-        )
-
-        CREATE (buyer)-[:TRADED_WITH {
-          symbol: row.symbol,
-          trade_id: row.trade_id,
-          qty: row.qty,
-          price: row.price,
-          ts: row.ts_exchange
-        }]->(seller)
-        """
-
         try:
-            async with self.driver.session() as session:
-                await session.run(query, batch=batch)
+            await self.store.upsert_traders_and_trades(batch, symbol="ZENITHSME")
         except Exception as exc:
-            logger.error("Failed to write trade batch to Neo4j", error=str(exc))
+            logger.error("Failed to flush trade batch", error=str(exc))
 
-    async def _periodic_ring_scan(self) -> None:
+    async def _periodic_attribution_loop(self) -> None:
         while self.running:
-            await asyncio.sleep(5.0)
-            await self._flush_trades()
-            await self._scan_rings()
+            await asyncio.sleep(10.0)
+            await self._run_attribution_cycle()
 
-    async def _scan_rings(self) -> None:
-        if not self.driver:
-            return
+    async def _run_attribution_cycle(self) -> None:
+        # Refresh watchlist from Redis if available
+        if self.redis_client:
+            try:
+                symbols = await self.redis_client.smembers("watchlist:symbols")
+                if symbols:
+                    self.watchlist_symbols.update(
+                        s.decode("utf-8") if isinstance(s, bytes) else str(s) for s in symbols
+                    )
+            except Exception as exc:
+                logger.debug("Redis watchlist fetch failed", error=str(exc))
 
-        # 1. Device clusters (shared devices)
-        device_query = """
-        MATCH (a1:Account)-[:USES_DEVICE]->(d:Device)<-[:USES_DEVICE]-(a2:Account)
-        WHERE a1.account_id < a2.account_id
-        WITH d, collect(DISTINCT a1.account_id) + collect(DISTINCT a2.account_id) AS accs
-        WHERE size(accs) >= 2
-        RETURN d.device_fp AS device, accs
-        LIMIT 10
-        """
+        for sym in list(self.watchlist_symbols):
+            try:
+                # Run attribution
+                trades = list(self.store.fallback_nx.edges(data=True))
+                formatted_trades = [
+                    {
+                        "seller": u,
+                        "buyer": v,
+                        "qty": d.get("qty", 0.0),
+                        "price": d.get("price", 0.0),
+                        "ts_ms": d.get("ts_ms", 0),
+                        "trade_id": str(k),
+                    }
+                    for u, v, k, d in trades
+                ]
 
-        # 2. Wash trading cycles
-        cycle_query = """
-        MATCH path = (a1:Account)-[t:TRADED_WITH*2..4]->(a1:Account)
-        WITH [n IN nodes(path) | n.account_id] AS ring, length(path) AS cycle_len
-        RETURN ring, cycle_len
-        LIMIT 10
-        """
+                if not formatted_trades:
+                    continue
 
-        try:
-            async with self.driver.session() as session:
-                # Scan device clusters
-                res = await session.run(device_query)
-                records = await res.data()
-                for rec in records:
-                    accs = list(set(rec["accs"]))
-                    if len(accs) >= 4:
-                        await self._emit_graph_anomaly(
-                            anom_type="FINGERPRINT_CLUSTER",
-                            participants=accs,
-                            metrics={"shared_device": rec["device"], "cluster_size": len(accs)},
-                            score=0.95,
-                        )
+                links, entities, cycles = self.engine.attribute_accounts(
+                    trades=formatted_trades,
+                    symbol=sym,
+                    case_id=f"case_{sym.lower()}",
+                )
 
-                # Scan wash trade cycles
-                res_cycles = await session.run(cycle_query)
-                cycle_records = await res_cycles.data()
-                for rec in cycle_records:
-                    ring = list(set(rec["ring"]))
-                    if len(ring) >= 2:
-                        await self._emit_graph_anomaly(
-                            anom_type="CIRCULAR_RING",
-                            participants=ring,
-                            metrics={"cycle_len": rec["cycle_len"], "ring_size": len(ring)},
-                            score=0.98,
-                        )
-        except Exception as exc:
-            logger.error("Error in graph ring scan", error=str(exc))
+                now_utc = datetime.datetime.now(datetime.timezone.utc)
+                start_utc = now_utc - datetime.timedelta(seconds=600)
+                now_iso = now_utc.isoformat()
+                start_iso = start_utc.isoformat()
 
-    async def _emit_graph_anomaly(
-        self,
-        anom_type: str,
-        participants: list[str],
-        metrics: dict[str, Any],
-        score: float,
-    ) -> None:
-        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
-        start_iso = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=120)).isoformat()
+                # Generate anomaly events
+                anomalies = self.engine.create_anomaly_events(
+                    symbol=sym,
+                    entities=entities,
+                    cycles=cycles,
+                    window_start_iso=start_iso,
+                    window_end_iso=now_iso,
+                    config_hash=self.config_hash,
+                )
 
-        anom = AnomalyEvent(
-            schema_version="1.0.0",
-            anomaly_id=str(uuid.uuid4()),
-            type=anom_type,  # type: ignore[arg-type]
-            source_agent="attribution",
-            symbol="ZENITHSME",  # or from trade
-            window_start=start_iso,
-            window_end=now_iso,
-            score=score,
-            severity="HIGH" if score >= 0.9 else "MEDIUM",
-            metrics=metrics,
-            participants=participants,
-            evidence_refs=[EvidenceRef(kind="anomaly_id", ref=str(uuid.uuid4()))],
-            detector_version="1.0.0",
-            config_hash=self.config_hash,
-            detected_at=now_iso,
-        )
+                if self.producer and anomalies:
+                    for anom in anomalies:
+                        payload = json.dumps(anom.model_dump()).encode("utf-8")
+                        await self.producer.send(topic="anomaly.fused", value=payload, key=sym.encode("utf-8"))
+                        await self.producer.send(topic="graph.updates", value=payload, key=sym.encode("utf-8"))
 
-        if self.producer:
-            payload = json.dumps(anom.model_dump()).encode("utf-8")
-            await self.producer.send(topic="anomaly.fused", value=payload, key=b"attribution")
-            await self.producer.send(topic="graph.updates", value=payload, key=b"attribution")
+                # Write LINKED edges to Neo4j
+                valid_links = [
+                    {
+                        "source_account": lk.source_account,
+                        "target_account": lk.target_account,
+                        "confidence": lk.confidence,
+                        "methods": [m.value for m in lk.methods],
+                        "evidence_ids": lk.evidence_ids,
+                    }
+                    for lk in links
+                    if lk.is_finding
+                ]
+                await self.store.upsert_linked_edges(valid_links, case_id=f"case_{sym.lower()}")
+
+            except Exception as exc:
+                logger.error("Attribution cycle failed for symbol", symbol=sym, error=str(exc))
 
     async def stop(self) -> None:
         self.running = False
@@ -217,14 +207,15 @@ class AttributionAgent:
             await self.consumer.stop()
         if self.producer:
             await self.producer.stop()
-        if self.driver:
-            await self.driver.close()
-        logger.info("Attribution agent stopped cleanly")
+        if self.redis_client:
+            await self.redis_client.aclose()
+        await self.store.close()
+        logger.info("Attribution Service stopped cleanly")
 
 
 async def run() -> None:
     setup_logging()
-    agent = AttributionAgent()
+    svc = AttributionService()
 
     loop = asyncio.get_running_loop()
     stop_event = asyncio.Event()
@@ -235,10 +226,9 @@ async def run() -> None:
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, _sig_handler)
 
-    task = asyncio.create_task(agent.start())
-
+    task = asyncio.create_task(svc.start())
     await stop_event.wait()
-    await agent.stop()
+    await svc.stop()
     task.cancel()
     try:
         await task
