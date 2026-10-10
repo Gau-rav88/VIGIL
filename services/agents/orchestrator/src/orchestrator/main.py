@@ -6,14 +6,20 @@ import json
 import os
 import signal
 import uuid
-from pathlib import Path
 from typing import Any
 
 import asyncpg
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+from evidence_engine.builder import EvidenceEngine
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from langgraph.types import Command
 from neo4j import AsyncGraphDatabase
-from vigil_common.evidence import EvidenceEngine
 from vigil_common.logging import get_logger, setup_logging
+
+from orchestrator.bus import AgentToolBus
+from orchestrator.graph import build_graph
+from orchestrator.models import CaseState
+from orchestrator.nodes import OrchestratorDeps
 
 logger = get_logger("orchestrator")
 
@@ -31,19 +37,47 @@ class CaseOrchestrator:
         self.consumer: AIOKafkaConsumer | None = None
         self.producer: AIOKafkaProducer | None = None
         self.evidence_engine: EvidenceEngine | None = None
+        self.tool_bus: AgentToolBus | None = None
+        self.deps: OrchestratorDeps | None = None
+        self.graph: Any = None
         self.running = False
-        self.active_cases: dict[str, str] = {}  # symbol -> case_id
+        self.checkpointer_cm: Any = None
+        self.checkpointer: Any = None
 
     async def start(self) -> None:
         self.running = True
-        logger.info("Starting orchestrator agent...", bootstrap=self.kafka_bootstrap)
+        logger.info("Starting LangGraph case orchestrator...", bootstrap=self.kafka_bootstrap)
 
+        # 1. Initialize DB & Storage connections
         self.pool = await asyncpg.create_pool(self.pg_dsn, min_size=2, max_size=10)
-        self.neo4j_driver = AsyncGraphDatabase.driver(
-            self.neo4j_uri, auth=(self.neo4j_user, self.neo4j_password)
-        )
         self.evidence_engine = EvidenceEngine(self.pg_dsn)
+        self.tool_bus = AgentToolBus()
+        await self.tool_bus.connect()
 
+        try:
+            self.neo4j_driver = AsyncGraphDatabase.driver(
+                self.neo4j_uri, auth=(self.neo4j_user, self.neo4j_password)
+            )
+        except Exception:
+            self.neo4j_driver = None
+
+        # 2. Setup Postgres Checkpointer
+        self.checkpointer_cm = AsyncPostgresSaver.from_conn_string(self.pg_dsn)
+        self.checkpointer = await self.checkpointer_cm.__aenter__()
+        await self.checkpointer.setup()
+
+        # 3. Build LangGraph StateGraph
+        self.deps = OrchestratorDeps(
+            pg_dsn=self.pg_dsn,
+            pool=self.pool,
+            evidence_engine=self.evidence_engine,
+            tool_bus=self.tool_bus,
+            neo4j_driver=self.neo4j_driver,
+        )
+        self.graph = build_graph(self.deps, checkpointer=self.checkpointer)
+        logger.info("LangGraph StateGraph compiled with PostgreSQL checkpointer")
+
+        # 4. Start Kafka Consumers & Producers
         self.producer = AIOKafkaProducer(bootstrap_servers=self.kafka_bootstrap, acks=1)
         await self.producer.start()
 
@@ -56,7 +90,7 @@ class CaseOrchestrator:
             enable_auto_commit=True,
         )
         await self.consumer.start()
-        logger.info("Connected to case.trigger and anomaly.fused")
+        logger.info("Listening on case.trigger and anomaly.fused")
 
         async for record in self.consumer:
             if not self.running:
@@ -67,14 +101,27 @@ class CaseOrchestrator:
             except Exception as exc:
                 logger.error("Error processing trigger in orchestrator", error=str(exc))
 
+    async def stop(self) -> None:
+        self.running = False
+        if self.consumer:
+            await self.consumer.stop()
+        if self.producer:
+            await self.producer.stop()
+        if self.tool_bus:
+            await self.tool_bus.close()
+        if self.pool:
+            await self.pool.close()
+        if self.checkpointer_cm:
+            await self.checkpointer_cm.__aexit__(None, None, None)
+
     async def _process_trigger(self, anom: dict[str, Any]) -> None:
         sym = anom.get("symbol", "UNKNOWN")
         anom_id = anom.get("anomaly_id", str(uuid.uuid4()))
         anom_type = anom.get("type", "CROSS_MODAL_ALIGNMENT")
 
-        logger.info("Orchestrator received case trigger", symbol=sym, anomaly_type=anom_type)
+        logger.info("Orchestrator received anomaly event", symbol=sym, anomaly_type=anom_type)
 
-        # Ignore stale triggers from previous runs
+        # Ignore stale triggers
         det_at = anom.get("detected_at")
         if det_at:
             try:
@@ -89,34 +136,47 @@ class CaseOrchestrator:
         # Check existing active case in DB
         case_id = await self._get_active_case_for_symbol(sym)
         if case_id:
-            return  # Case already opened or in review; do not overwrite!
+            logger.info("Active case already exists for symbol", symbol=sym, case_id=case_id)
+            return
 
         if anom_type != "CROSS_MODAL_ALIGNMENT":
-            return  # Single modality anomalies do not open cases
-        case_id = await self._create_case(sym, anom_id)
+            return
 
-        # Expand attribution graph in Neo4j
-        rings = await self._query_graph_rings(sym)
+        # Generate new case ID
+        new_case_id = str(uuid.uuid4())
+        init_state: CaseState = {
+            "case_id": new_case_id,
+            "symbol": sym,
+            "exchange": "SYNTH",
+            "trigger_anomaly_id": anom_id,
+            "stage": "OPENED",
+        }
 
-        # Compile dossier
-        if self.evidence_engine:
-            dossier_data, bundle_bytes = await self.evidence_engine.compile_dossier(
-                case_id=case_id,
-                symbol=sym,
-                attribution_rings=rings,
-                anomalies=[anom],
-                human_review={"status": "NOT_REVIEWED"},
+        config = {"configurable": {"thread_id": new_case_id}}
+        logger.info("Invoking LangGraph for new case", case_id=new_case_id, symbol=sym)
+
+        # Run state graph until interrupt() at await_review
+        try:
+            state = await self.graph.ainvoke(init_state, config=config)
+            logger.info(
+                "Case traversed LangGraph state machine",
+                case_id=new_case_id,
+                stage=state.get("stage"),
+                dossier_id=state.get("dossier_id"),
             )
+        except Exception as exc:
+            logger.error("LangGraph execution error", case_id=new_case_id, error=str(exc))
 
-            # Store bundle locally / in cache
-            bundle_dir = Path("/tmp/vigil_bundles")
-            bundle_dir.mkdir(parents=True, exist_ok=True)
-            with open(bundle_dir / f"{dossier_data['dossier_id']}.zip", "wb") as f:
-                f.write(bundle_bytes)
+    async def resume_case(self, case_id: str, review_payload: dict[str, Any]) -> dict[str, Any]:
+        """
+        Resumes a paused case after human compliance review action.
+        """
+        if not self.graph:
+            raise RuntimeError("Graph not initialized")
 
-            # Transition case status to PENDING_REVIEW
-            await self._update_case_status(case_id, "PENDING_REVIEW")
-            logger.info("Case transitioned to PENDING_REVIEW", case_id=case_id, symbol=sym)
+        config = {"configurable": {"thread_id": case_id}}
+        resumed_state = await self.graph.ainvoke(Command(resume=review_payload), config=config)
+        return dict(resumed_state)
 
     async def _get_active_case_for_symbol(self, symbol: str) -> str | None:
         if not self.pool:
@@ -132,120 +192,20 @@ class CaseOrchestrator:
             )
             return str(row["case_id"]) if row else None
 
-    async def _create_case(self, symbol: str, trigger_anom_id: str) -> str:
-        if not self.pool:
-            return ""
-        case_id = str(uuid.uuid4())
-        now_dt = datetime.datetime.now(datetime.timezone.utc)
-        start_dt = now_dt - datetime.timedelta(hours=1)
 
-        async with self.pool.acquire() as conn:
-            await conn.execute(
-                """
-                INSERT INTO vigil.cases (
-                    case_id, symbol, exchange, status, window_start, window_end, trigger_anomaly_id,
-                    mrs, overall_confidence, completeness, state, is_synthetic
-                ) VALUES ($1, $2, $3, 'OPENED'::vigil.case_status, $4, $5, $6, $7, $8, $9, $10, true);
-                """,
-                uuid.UUID(case_id),
-                symbol,
-                "SYNTH",
-                start_dt,
-                now_dt,
-                uuid.UUID(trigger_anom_id),
-                0.85,
-                0.92,
-                0.90,
-                json.dumps({"stage": "OPENED", "symbol": symbol}),
-            )
-        logger.info("Opened new forensic case", case_id=case_id, symbol=symbol)
-        return case_id
-
-    async def _update_case_status(self, case_id: str, new_status: str) -> None:
-        if not self.pool:
-            return
-        async with self.pool.acquire() as conn:
-            await conn.execute(
-                """
-                UPDATE vigil.cases
-                SET status = $1::vigil.case_status, updated_at = now()
-                WHERE case_id = $2;
-                """,
-                new_status,
-                uuid.UUID(case_id),
-            )
-
-    async def _query_graph_rings(self, symbol: str) -> list[dict[str, Any]]:
-        if not self.neo4j_driver:
-            return [{"ring_id": "ring_01", "ring_score": 0.95, "accounts_count": 20}]
-
-        query = """
-        MATCH (a1:Account)-[:USES_DEVICE]->(d:Device)<-[:USES_DEVICE]-(a2:Account)
-        WITH collect(DISTINCT a1.account_id) + collect(DISTINCT a2.account_id) AS accs
-        RETURN size(accs) AS sz
-        LIMIT 1
-        """
-        try:
-            async with self.neo4j_driver.session() as session:
-                res = await session.run(query)
-                rec = await res.single()
-                sz = rec["sz"] if rec else 20
-                return [{
-                    "ring_id": "ring_01",
-                    "ring_score": 0.92,
-                    "accounts_count": max(15, sz),
-                    "shared_devices": 5,
-                    "shared_asn": 55836,
-                }]
-        except Exception:
-            return [{
-                "ring_id": "ring_01",
-                "ring_score": 0.92,
-                "accounts_count": 20,
-                "shared_devices": 5,
-                "shared_asn": 55836,
-            }]
-
-    async def stop(self) -> None:
-        self.running = False
-        if self.consumer:
-            await self.consumer.stop()
-        if self.producer:
-            await self.producer.stop()
-        if self.neo4j_driver:
-            await self.neo4j_driver.close()
-        if self.pool:
-            await self.pool.close()
-        logger.info("Orchestrator stopped cleanly")
-
-
-async def run() -> None:
+async def run_service() -> None:
     setup_logging()
     orchestrator = CaseOrchestrator()
 
     loop = asyncio.get_running_loop()
-    stop_event = asyncio.Event()
-
-    def _sig_handler() -> None:
-        stop_event.set()
-
     for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, _sig_handler)
+        loop.add_signal_handler(sig, lambda: asyncio.create_task(orchestrator.stop()))
 
-    task = asyncio.create_task(orchestrator.start())
-
-    await stop_event.wait()
-    await orchestrator.stop()
-    task.cancel()
     try:
-        await task
+        await orchestrator.start()
     except asyncio.CancelledError:
         pass
 
 
-def main() -> None:
-    asyncio.run(run())
-
-
 if __name__ == "__main__":
-    main()
+    asyncio.run(run_service())

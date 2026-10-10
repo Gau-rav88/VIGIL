@@ -1,0 +1,47 @@
+[
+  {
+    "evidence_id": "EV-ANOMALY_EVENT-c17d62bdae59",
+    "leaf_hash": "5041440b3aae4ac7f340970c7c09932417b7913757fb6ac9f35dac3e911ae88c",
+    "path": []
+  },
+  {
+    "evidence_id": "EV-CHART_IMAGE-bf6e855b6761",
+    "leaf_hash": "9ba1c4888ecee24ff63431358e5af7258bda57afe0a8657c56d0bedea94af473",
+    "path": []
+  },
+  {
+    "evidence_id": "EV-CONFIG_SNAPSHOT-c34e4d6237b9",
+    "leaf_hash": "a4b0501fb1b2173800358912a7247f96e446f2c775def623d8ad0a64c9593f11",
+    "path": []
+  },
+  {
+    "evidence_id": "EV-GRAPH_EXPORT-22a841764965",
+    "leaf_hash": "356495bd893c9bd058d194263401256111c08496737ad8e0faad710ab8157b9c",
+    "path": []
+  },
+  {
+    "evidence_id": "EV-L2_SLICE-2849a009b744",
+    "leaf_hash": "313ca365690016ed2359a8cf2da62990c0b044c84645529faab46f2562548327",
+    "path": []
+  },
+  {
+    "evidence_id": "EV-L3_SLICE-9ae971c59009",
+    "leaf_hash": "f535a1fde0f64a9aa32360cbe76c66bd5c21def2f3cd1c5202d225637037946f",
+    "path": []
+  },
+  {
+    "evidence_id": "EV-LLM_TRACE-57c2816fe39b",
+    "leaf_hash": "8fb2bebfe904873c2738b30421bb4f87584013a32d2bffaccd3bbdfbcb7db842",
+    "path": []
+  },
+  {
+    "evidence_id": "EV-SOCIAL_SLICE-4059c82130ad",
+    "leaf_hash": "dd51d8b7bdb8032cebf6114a9b36fcf54c4af7c86751a19214b1536d7d410676",
+    "path": []
+  },
+  {
+    "evidence_id": "EV-TRADE_SLICE-3674d25ab927",
+    "leaf_hash": "f091ae52a882e20cf5f1ec44a80724b74947b7c4ad5015d6ce15d0a431928f2f",
+    "path": []
+  }
+]

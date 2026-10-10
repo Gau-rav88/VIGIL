@@ -1,0 +1,127 @@
+{
+  "schema_version": "1.0.0",
+  "dossier_id": "ee388054-b9fb-4248-9abd-99b140e4f154",
+  "merkle_root": "ff9758c950fb649fc8e6efdd8f87f8f4e4db300a556813195b391987ad7e7c39",
+  "evidence_manifest": [
+    {
+      "evidence_id": "EV-TRADE_SLICE-3674d25ab927",
+      "type": "TRADE_SLICE",
+      "sha256": "3674d25ab927a4efec8c17ffb1fc7fa3dae452568437821ef9280e886fb2df32",
+      "uri": "evidence/EV-TRADE_SLICE-3674d25ab927.json",
+      "bytes": 939,
+      "captured_at": "2026-10-10T11:07:02.292593+00:00"
+    },
+    {
+      "evidence_id": "EV-L2_SLICE-2849a009b744",
+      "type": "L2_SLICE",
+      "sha256": "2849a009b7444b976d169059bd66571bda2ad431b9740e7db5815e93a34567d8",
+      "uri": "evidence/EV-L2_SLICE-2849a009b744.json",
+      "bytes": 142,
+      "captured_at": "2026-10-10T11:07:02.292593+00:00"
+    },
+    {
+      "evidence_id": "EV-L3_SLICE-9ae971c59009",
+      "type": "L3_SLICE",
+      "sha256": "9ae971c59009db3df2a5298fb870fec44b8acb9047304dff4c7ef663937609ee",
+      "uri": "evidence/EV-L3_SLICE-9ae971c59009.json",
+      "bytes": 448,
+      "captured_at": "2026-10-10T11:07:02.292593+00:00"
+    },
+    {
+      "evidence_id": "EV-SOCIAL_SLICE-4059c82130ad",
+      "type": "SOCIAL_SLICE",
+      "sha256": "4059c82130ad606146e22f9f18fc559b98df6542adbd379bf5d6c9a855cd7e5d",
+      "uri": "evidence/EV-SOCIAL_SLICE-4059c82130ad.json",
+      "bytes": 142,
+      "captured_at": "2026-10-10T11:07:02.292593+00:00"
+    },
+    {
+      "evidence_id": "EV-ANOMALY_EVENT-c17d62bdae59",
+      "type": "ANOMALY_EVENT",
+      "sha256": "c17d62bdae590c14283589d81aecda5c113e5a832b1a2b3a2ed2d969559f758b",
+      "uri": "evidence/EV-ANOMALY_EVENT-c17d62bdae59.json",
+      "bytes": 153,
+      "captured_at": "2026-10-10T11:07:02.292593+00:00"
+    },
+    {
+      "evidence_id": "EV-GRAPH_EXPORT-22a841764965",
+      "type": "GRAPH_EXPORT",
+      "sha256": "22a841764965b54f7254686db9ffd7fcf1d15dfe02d7d3fca2491316845af7bc",
+      "uri": "evidence/EV-GRAPH_EXPORT-22a841764965.json",
+      "bytes": 926,
+      "captured_at": "2026-10-10T11:07:02.292593+00:00"
+    },
+    {
+      "evidence_id": "EV-CHART_IMAGE-bf6e855b6761",
+      "type": "CHART_IMAGE",
+      "sha256": "bf6e855b67618763d38f0cd8c2ab5ea9aed7b28f4475939f040e4e3ac016bedc",
+      "uri": "evidence/EV-CHART_IMAGE-bf6e855b6761.png",
+      "bytes": 67,
+      "captured_at": "2026-10-10T11:07:02.292593+00:00"
+    },
+    {
+      "evidence_id": "EV-LLM_TRACE-57c2816fe39b",
+      "type": "LLM_TRACE",
+      "sha256": "57c2816fe39b62248df984412d3451d5099ed9fb781e36ced0c6da826e66e863",
+      "uri": "evidence/EV-LLM_TRACE-57c2816fe39b.json",
+      "bytes": 146,
+      "captured_at": "2026-10-10T11:07:02.292593+00:00"
+    },
+    {
+      "evidence_id": "EV-CONFIG_SNAPSHOT-c34e4d6237b9",
+      "type": "CONFIG_SNAPSHOT",
+      "sha256": "c34e4d6237b91340f5425cf899372f7fb2c9d1da87a335fd8a62dd27f4c94f16",
+      "uri": "evidence/EV-CONFIG_SNAPSHOT-c34e4d6237b9.json",
+      "bytes": 229,
+      "captured_at": "2026-10-10T11:07:02.292593+00:00"
+    }
+  ],
+  "merkle_proofs": [
+    {
+      "evidence_id": "EV-ANOMALY_EVENT-c17d62bdae59",
+      "leaf_hash": "5041440b3aae4ac7f340970c7c09932417b7913757fb6ac9f35dac3e911ae88c",
+      "path": []
+    },
+    {
+      "evidence_id": "EV-CHART_IMAGE-bf6e855b6761",
+      "leaf_hash": "9ba1c4888ecee24ff63431358e5af7258bda57afe0a8657c56d0bedea94af473",
+      "path": []
+    },
+    {
+      "evidence_id": "EV-CONFIG_SNAPSHOT-c34e4d6237b9",
+      "leaf_hash": "a4b0501fb1b2173800358912a7247f96e446f2c775def623d8ad0a64c9593f11",
+      "path": []
+    },
+    {
+      "evidence_id": "EV-GRAPH_EXPORT-22a841764965",
+      "leaf_hash": "356495bd893c9bd058d194263401256111c08496737ad8e0faad710ab8157b9c",
+      "path": []
+    },
+    {
+      "evidence_id": "EV-L2_SLICE-2849a009b744",
+      "leaf_hash": "313ca365690016ed2359a8cf2da62990c0b044c84645529faab46f2562548327",
+      "path": []
+    },
+    {
+      "evidence_id": "EV-L3_SLICE-9ae971c59009",
+      "leaf_hash": "f535a1fde0f64a9aa32360cbe76c66bd5c21def2f3cd1c5202d225637037946f",
+      "path": []
+    },
+    {
+      "evidence_id": "EV-LLM_TRACE-57c2816fe39b",
+      "leaf_hash": "8fb2bebfe904873c2738b30421bb4f87584013a32d2bffaccd3bbdfbcb7db842",
+      "path": []
+    },
+    {
+      "evidence_id": "EV-SOCIAL_SLICE-4059c82130ad",
+      "leaf_hash": "dd51d8b7bdb8032cebf6114a9b36fcf54c4af7c86751a19214b1536d7d410676",
+      "path": []
+    },
+    {
+      "evidence_id": "EV-TRADE_SLICE-3674d25ab927",
+      "leaf_hash": "f091ae52a882e20cf5f1ec44a80724b74947b7c4ad5015d6ce15d0a431928f2f",
+      "path": []
+    }
+  ],
+  "created_at": "2026-10-10T11:07:02.292593+00:00"
+}

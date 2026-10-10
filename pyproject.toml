@@ -3,7 +3,13 @@ name = "vigil-workspace"
 version = "1.0.0"
 description = "Project VIGIL - Autonomous Multi-Agent Forensic Intelligence Platform"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "jsonschema>=4.26.0",
+    "langgraph-checkpoint-postgres>=3.1.2",
+    "pypdf>=6.20.0",
+    "qrcode>=8.2",
+    "reportlab>=5.0.1",
+]
 
 [tool.uv.workspace]
 members = [

@@ -1,0 +1,16 @@
+{
+  "case_id": "case_sample_pump_dump_01",
+  "dossier_id": "ee388054-b9fb-4248-9abd-99b140e4f154",
+  "entries": [
+    {
+      "entry_id": 1,
+      "ts": "2026-10-10T11:07:02.292593+00:00",
+      "case_id": "case_sample_pump_dump_01",
+      "entry_type": "DOSSIER_CREATION",
+      "actor": "evidence_engine",
+      "subject_sha256": "18a2090a9331ce6089c9c31d67c057b4ea2cd832bc72efacee46955b0b5676c1",
+      "prev_entry_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "entry_hash": "139b545b06cba60ba49175ec0d5711dfa5bd8861c044e1cbde6a51ef551c45d9"
+    }
+  ]
+}

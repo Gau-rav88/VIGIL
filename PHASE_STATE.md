@@ -13,7 +13,7 @@ This ledger tracks phase-by-phase completion, environment specifications, datase
 | **Phase 3** | Social Intelligence & Hype Scoring | **COMPLETE** | 10/10 checks passed (see below) |
 | **Phase 4** | Cross-Modal Alignment & MRS | **COMPLETE** | 9/9 checks passed (see below) |
 | **Phase 5** | Graph Attribution & Entities | **COMPLETE** | 10/10 checks passed (see below) |
-| **Phase 6** | LangGraph Orchestration & Evidence | PENDING | Not started |
+| **Phase 6** | LangGraph Orchestration & Cryptographic Evidence | **COMPLETE** | 14/14 checks passed (see below) |
 | **Phase 7** | API & Investigator UI Workbench | PENDING | Not started |
 | **Phase 8** | Hardening, Observability & Release | PENDING | Not started |
 
@@ -318,4 +318,85 @@ GATE 5 RESULT: PASS (10/10 checks passed)
    - Cytoscape JSON export endpoint `GET /api/v1/cases/{case_id}/graph` tested over 100 consecutive requests:
      - p95 latency = **23.84 ms** (comfortably beating the PRD requirement of p95 $< 800$ ms).
    - Supports parameter filtering by `max_nodes` and `min_conf`.
+
+---
+
+## Phase 6 Gate Verification Evidence
+
+Command executed: `make gate PHASE=6`
+
+```
+================================================================================
+Project VIGIL - Gate 6 Verification (LangGraph Orchestration & Cryptographic Evidence)
+================================================================================
+
+| ID         | Check Description                             | Status | Detail                         |
+|------------|-----------------------------------------------|--------|--------------------------------|
+| P6-G0      | Core infra & services healthy                 | PASS   | Timescale, Neo4j, Redis, Redpanda |
+| AC-ORC-01  | Traversal OPENED -> PENDING_REVIEW < 5 min    | PASS   | Traversed in 0.07s < 300s       |
+| AC-ORC-02  | Resume mid-case: no duplicate ledger entries  | PASS   | Checkpointer reload idempotent |
+| AC-ORC-03  | LLM blocked fallback to TEMPLATE mode         | PASS   | narrative_mode='TEMPLATE' verified |
+| AC-DOS-01  | Dossier validates schema; all claims cited    | PASS   | Schema valid & claims cited    |
+| AC-DOS-02  | Byte tampering detected with named failure    | PASS   | HASH_MISMATCH named error caught |
+| AC-DOS-03  | SQL UPDATE/DELETE on evidence_ledger raises   | PASS   | DB append-only triggers active |
+| AC-DOS-04  | vigil-verify exits 0 on valid, 1 on tampered  | PASS   | Offline CLI verification passed |
+| AC-DOS-05  | PDF >= 6 sections, manifest hash, QR code     | PASS   | ReportLab PDF parsed & verified |
+| AC-DOS-06  | Cannot reach PUBLISHED without approval       | PASS   | HTTP 409 guardrail enforced    |
+| P6-G1      | Deterministic dossier digest reproducibility  | PASS   | Identical canonical JCS digest |
+| P6-TEST    | Orchestrator & evidence coverage >= 80%       | PASS   | Coverage meets >= 80% threshold |
+| P6-LINT    | Ruff and Mypy strict clean                    | PASS   | 95 source files typed & lint-free |
+| P6-REPORT  | reports/sample_bundle/ verified & non-empty   | PASS   | Signed sample bundle generated |
+
+================================================================================
+GATE 6 RESULT: PASS (14/14 checks passed)
+================================================================================
+```
+
+---
+
+## Phase 6 Handoff Block
+
+1. **LangGraph StateGraph Architecture (`services/agents/orchestrator`):**
+   - Authoritative `StateGraph(CaseState)` compiled with PostgreSQL checkpointing (`AsyncPostgresSaver` with `thread_id = case_id`).
+   - 10 Graph Nodes:
+     - `open_case`: Ingests trigger anomaly, evaluates watchlist deduplication and case overlap.
+     - `enrich`: Dispatches market & social data requests via Redis Streams `AgentToolBus`.
+     - `align`: Computes cross-modal alignment metric and lag peak.
+     - `attribute`: Reconstructs coordination graph and identifies collusive rings.
+     - `assess`: Evaluates case confidence formula, completeness, and regulatory clause mapping.
+     - `draft`: Synthesizes narrative via structured LLM with deterministic `TemplateNarrator` fallback.
+     - `validate`: Enforces strict schema compliance, sentence-by-sentence citation resolution, and numerical volume conservation.
+     - `sign`: Records append-only ledger entry, generates Ed25519 signature over RFC 8785 canonical digest, and transitions case to `PENDING_REVIEW`.
+     - `await_review`: Invokes LangGraph `interrupt()` suspending state machine until compliance officer verdict (`APPROVED`, `REJECTED`, or `REWORK`).
+     - `publish`: Validates `APPROVED` status (HTTP 409 guardrail), emits final signed version 2 dossier and transitions case to `PUBLISHED`.
+   - Idempotency keys (`sha256(case_id|node|attempt_group|inputs)`) guarantee zero duplicate ledger entries upon process crash or resume (`AC-ORC-02`).
+
+2. **Cryptographic Evidence Engine (`services/evidence_engine`):**
+   - **Deterministic Evidence Capture:** Formatted IDs `EV-{TYPE}-{sha256[:12]}` covering all 9 types: `TRADE_SLICE`, `L2_SLICE`, `L3_SLICE`, `SOCIAL_SLICE`, `ANOMALY_EVENT`, `GRAPH_EXPORT`, `CHART_IMAGE`, `LLM_TRACE`, and `CONFIG_SNAPSHOT`.
+   - **RFC 6962 Merkle Tree:** Binary hash tree with domain separation (`0x00` leaf, `0x01` parent) generating individual audit inclusion proofs.
+   - **RFC 8785 Canonical JSON & Ed25519 Signing:** Cryptographic digest signed with `FileEd25519Signer` (Key ID: `dev-2026-01`).
+   - **Append-Only Evidence Ledger:** Protected by PostgreSQL database triggers blocking `UPDATE` and `DELETE` queries (`AC-DOS-03`).
+   - **Self-Contained Forensic PDF:** Generated via ReportLab featuring 7 structured sections, Merkle root, manifest hash, and embedded verification QR code (`AC-DOS-05`).
+   - **Offline Evidence Bundle (`bundle.zip`):** Contains `dossier.json`, `dossier.sig`, `dossier.pdf`, `manifest.json`, `proofs.json`, `ledger_proof.json`, `pubkey.pem`, `VERIFY.md`, and raw `/evidence` files.
+
+3. **Offline Verifier CLI (`vigil-verify`):**
+   - Independent 6-step cryptographic validator:
+     1. Schema validation against `ForensicDossier` Pydantic specification.
+     2. SHA-256 byte integrity across all evidence objects.
+     3. RFC 6962 Merkle root recomputation and match.
+     4. Cryptographic ledger chain continuity.
+     5. RFC 8785 canonical digest recomputation and Ed25519 signature verification.
+     6. Human compliance review status verification (enforces `APPROVED` requirement for published cases).
+   - CLI verified offline via `make verify BUNDLE=reports/sample_bundle/bundle.zip` (exits 0 on valid, 1 on tampered).
+
+4. **Phase 6 Verification Artifacts:**
+   - **Key ID:** `dev-2026-01`
+   - **Public Key:** `keys/dev_ed25519.pub`
+   - **Sample Dossier ID:** `ee388054-b9fb-4248-9abd-99b140e4f154`
+   - **Sample Bundle:** `reports/sample_bundle/bundle.zip`
+   - **Narrative Prompt Version:** `v1.0.0-template`
+   - **Legal Review Items:**
+     - Regulatory clause mapping in `config/regulatory_clauses.yaml` (SEBI PFUTP Reg 4(2) and SEC Rule 10b-5) flagged as `legal_review_required: true`.
+     - Certificate of Integrity template page in PDF marked `DRAFT — legal review required`.
+
 
