@@ -290,6 +290,8 @@ async def test_neo4j_graph_store_connected() -> None:
     try:
         conn = await store.connect()
         if conn:
+            import uuid
+            case_id = f"case_test_live_{uuid.uuid4().hex[:8]}"
             trades = [
                 {
                     "seller": "ACC_TEST_S",
@@ -316,14 +318,14 @@ async def test_neo4j_graph_store_connected() -> None:
                     "evidence_ids": ["dev_D_TEST"],
                 }
             ]
-            await store.upsert_linked_edges(links, case_id="case_test_live")
-            subg = await store.get_case_subgraph("case_test_live")
+            await store.upsert_linked_edges(links, case_id=case_id)
+            subg = await store.get_case_subgraph(case_id)
             assert len(subg["nodes"]) >= 2
             assert len(subg["edges"]) >= 1
 
             # Test veto
-            await store.record_veto("ACC_TEST_S", "ACC_TEST_B", case_id="case_test_live")
-            assert store.is_vetoed("ACC_TEST_S", "ACC_TEST_B", case_id="case_test_live")
+            await store.record_veto("ACC_TEST_S", "ACC_TEST_B", case_id=case_id)
+            assert store.is_vetoed("ACC_TEST_S", "ACC_TEST_B", case_id=case_id)
     finally:
         await store.close()
 

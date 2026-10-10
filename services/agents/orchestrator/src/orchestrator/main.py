@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import datetime
 import json
 import os
 import signal
@@ -85,8 +84,8 @@ class CaseOrchestrator:
             "case.trigger",
             "anomaly.fused",
             bootstrap_servers=self.kafka_bootstrap,
-            group_id="orchestrator_workers",
-            auto_offset_reset="latest",
+            group_id="orchestrator_workers_v2",
+            auto_offset_reset="earliest",
             enable_auto_commit=True,
         )
         await self.consumer.start()
@@ -121,17 +120,8 @@ class CaseOrchestrator:
 
         logger.info("Orchestrator received anomaly event", symbol=sym, anomaly_type=anom_type)
 
-        # Ignore stale triggers
-        det_at = anom.get("detected_at")
-        if det_at:
-            try:
-                det_dt = datetime.datetime.fromisoformat(det_at.replace("Z", "+00:00"))
-                age_s = (datetime.datetime.now(datetime.timezone.utc) - det_dt).total_seconds()
-                if age_s > 60.0:
-                    logger.info("Ignoring stale trigger", symbol=sym, age_s=round(age_s, 1))
-                    return
-            except Exception:
-                pass
+        # Simulation and real-time triggers are processed immediately
+
 
         # Check existing active case in DB
         case_id = await self._get_active_case_for_symbol(sym)
@@ -139,7 +129,7 @@ class CaseOrchestrator:
             logger.info("Active case already exists for symbol", symbol=sym, case_id=case_id)
             return
 
-        if anom_type != "CROSS_MODAL_ALIGNMENT":
+        if anom_type not in ("CROSS_MODAL_ALIGNMENT", "CIRCULAR_RING", "FINGERPRINT_CLUSTER", "PUMP_AND_DUMP"):
             return
 
         # Generate new case ID

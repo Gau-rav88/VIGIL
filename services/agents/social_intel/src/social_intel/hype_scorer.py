@@ -144,6 +144,15 @@ class HypeScorer:
         else:
             now = datetime.datetime.now(datetime.timezone.utc).timestamp()
 
+        # If time moved backward (e.g. simulation scenario restart), reset ticker state
+        if st.last_step_ts > 0 and now < (st.last_step_ts - 5.0):
+            st.window.clear()
+            st.burst_consecutive_s = 0.0
+            st.last_burst_emitted_ts = 0.0
+            st.last_step_ts = now
+            st.last_ewma_ts = now
+            self.reported_campaign_clusters.clear()
+
         # 1. Prune signals older than window W = 60s
         cutoff = now - self.window_s
         while st.window and st.window[0]["ts_numeric"] < cutoff:

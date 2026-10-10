@@ -13,6 +13,12 @@
 - **[FLOW.md](FLOW.md)** — End-to-end data and decision hops $S0 \to S13$, scenario walkthroughs, and error recovery.
 - **[FRONTEND.md](FRONTEND.md)** — UI design specifications, design tokens, screen layouts, and component architecture.
 - **[PHASE_STATE.md](PHASE_STATE.md)** — Live progress ledger tracking environment state, dataset receipts, and phase gate results.
+- **[CHANGELOG.md](CHANGELOG.md)** — v1.0.0 release notes across all 8 phases.
+- **[docs/runbook.md](docs/runbook.md)** — Production operator runbook, disaster recovery drills, key rotation, and DLQ handling.
+- **[docs/demo-script.md](docs/demo-script.md)** — 10-minute investigator rehearsal script (Persona A investigator, Persona B compliance officer).
+- **[docs/production-notes.md](docs/production-notes.md)** — Production architecture, Cloud KMS/HSM, managed Kafka, and Neo4j clustering.
+- **[docs/threat-model.md](docs/threat-model.md)** — STRIDE forensic threat model and anti-tamper security controls.
+- **[docs/security/asvs.md](docs/security/asvs.md)** — OWASP ASVS v4.0.3 Level 2 security verification checklist.
 
 ---
 

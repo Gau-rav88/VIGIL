@@ -198,7 +198,7 @@ class Neo4jGraphStore:
         UNWIND $batch AS row
         MERGE (a:Trader {account_id: row.source_account})
         MERGE (b:Trader {account_id: row.target_account})
-        MERGE (a)-[r:LINKED {case_id: $case_id}]-(b)
+        MERGE (a)-[r:LINKED {case_id: $case_id}]->(b)
           SET r.confidence = row.confidence,
               r.weight = row.confidence,
               r.methods = row.methods,

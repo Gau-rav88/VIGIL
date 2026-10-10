@@ -1,0 +1,38 @@
+groups:
+  - name: vigil_critical_alerts
+    rules:
+      - alert: ConsumerLagHigh
+        expr: vigil_kafka_consumer_lag > 1000
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High consumer lag detected on {{ $labels.topic }} / {{ $labels.consumergroup }}"
+          description: "Consumer lag is {{ $value }} events, exceeding real-time processing SLA (NFR-PERF-01)."
+
+      - alert: DLQRateHigh
+        expr: rate(vigil_dlq_events_total[1m]) > 0.05
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High DLQ event rejection rate"
+          description: "Malformed or unparseable events routed to DLQ at {{ $value }} ev/s."
+
+      - alert: SignerDown
+        expr: vigil_signer_up == 0 or rate(vigil_signature_errors_total[1m]) > 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Forensic Ed25519 signer offline or failing"
+          description: "Digital signature engine cannot sign RFC 8785 evidence manifests."
+
+      - alert: LedgerVerifyFailure
+        expr: vigil_ledger_verify_status == 0 or increase(vigil_ledger_tamper_total[1m]) > 0
+        for: 0s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Forensic evidence ledger hash chain integrity failure"
+          description: "Cryptographic hash mismatch or append-only trigger breach detected in evidence ledger."

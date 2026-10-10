@@ -53,6 +53,22 @@ ignore = ["E501", "BLE001"]
 python_version = "3.12"
 strict = true
 ignore_missing_imports = true
+warn_redundant_casts = false
+mypy_path = [
+    "libs/vigil_common/src",
+    "services/market_ingest/src",
+    "services/social_ingest/src",
+    "services/stream_sink/src",
+    "services/alignment_engine/src",
+    "services/evidence_engine/src",
+    "services/verifier/src",
+    "services/api/src",
+    "services/simulator/src",
+    "services/agents/quant_telemetry/src",
+    "services/agents/social_intel/src",
+    "services/agents/attribution/src",
+    "services/agents/orchestrator/src",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

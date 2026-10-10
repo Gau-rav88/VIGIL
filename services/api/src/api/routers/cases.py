@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime
 import uuid
-from typing import Any, cast
+from typing import Any
 
 from api.audit import record_audit_log
 from api.auth import User, require_roles
@@ -221,7 +221,7 @@ async def get_case_graph(
     if graph_store:
         subgraph = await graph_store.get_case_subgraph(case_id, max_nodes=max_nodes, min_conf=min_conf)
         if subgraph.get("nodes"):
-            return cast(dict[str, Any], subgraph)
+            return subgraph
 
     nodes: list[dict[str, Any]] = []
     edges: list[dict[str, Any]] = []

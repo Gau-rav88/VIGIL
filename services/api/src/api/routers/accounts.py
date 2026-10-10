@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, cast
+from typing import Any
 
 from api.auth import User, require_roles
 from api.errors import ProblemException
@@ -40,7 +40,7 @@ async def reveal_account_identity(
             officer_id=user.sub,
             justification=req.justification,
         )
-        return cast(dict[str, Any], identity)
+        return identity
     except Exception as exc:
         raise ProblemException(
             status_code=500,

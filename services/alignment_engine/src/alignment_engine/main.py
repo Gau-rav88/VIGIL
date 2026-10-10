@@ -22,9 +22,9 @@ import uuid
 from typing import Any
 
 import asyncpg
-import numpy as np
 import redis.asyncio as aioredis
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+from numpy import median, zeros
 from vigil_common.logging import get_logger, setup_logging
 from vigil_common.models.anomaly import AnomalyEvent, EvidenceRef
 
@@ -37,7 +37,7 @@ logger = get_logger("alignment_engine")
 # --- Configuration ---
 ALIGN_CYCLE_S = 60        # run alignment per ticker every 60 seconds
 FAST_PATH_WINDOW_S = 900  # HYPE_BURST + market anomaly within 15 min
-COOLDOWN_S = 300          # suppress duplicate CROSS_MODAL_ALIGNMENT per ticker
+COOLDOWN_S = 30           # suppress duplicate CROSS_MODAL_ALIGNMENT per ticker
 P_THRESHOLD = 0.01        # permutation test significance threshold
 LAG_MIN_S = -120
 LAG_MAX_S = 1800
@@ -91,8 +91,8 @@ class AlignmentEngine:
             "anomaly.social",
             "hype.scores.norm",
             bootstrap_servers=self.kafka_bootstrap,
-            group_id="alignment_engine_workers_v2",
-            auto_offset_reset="latest",
+            group_id="alignment_engine_workers_v3",
+            auto_offset_reset="earliest",
             enable_auto_commit=True,
         )
         await self.consumer.start()
@@ -114,7 +114,9 @@ class AlignmentEngine:
         # Redis
         try:
             self.redis = aioredis.from_url(self.redis_url, decode_responses=True)
-            await self.redis.ping()
+            ping_obj: Any = self.redis.ping()
+            if hasattr(ping_obj, "__await__"):
+                await ping_obj
             logger.info("Connected to Redis")
         except Exception as exc:
             logger.warning("Redis unavailable — MRS will not be cached", error=str(exc))
@@ -168,14 +170,9 @@ class AlignmentEngine:
 
     async def _on_anomaly(self, topic: str, anom: dict[str, Any]) -> None:
         sym = anom.get("symbol", "UNKNOWN")
-        det_at = anom.get("detected_at")
-        dt = (
-            datetime.datetime.fromisoformat(det_at.replace("Z", "+00:00"))
-            if det_at
-            else datetime.datetime.now(datetime.timezone.utc)
-        )
-        ts = dt.timestamp()
         now_ts = datetime.datetime.now(datetime.timezone.utc).timestamp()
+        ts = now_ts
+        logger.info("Alignment engine received anomaly", topic=topic, symbol=sym, anomaly_type=anom.get("type"))
 
         # Update micro-structure cache for MRS component
         anom_type = anom.get("type", "")
@@ -213,25 +210,33 @@ class AlignmentEngine:
         ]
         market_events = [
             a for a in bucket["market"]
-            if a.get("type") in ("VOLUME_SPIKE", "PRICE_JUMP")
+            if a.get("type") in ("VOLUME_SPIKE", "PRICE_JUMP", "WASH_CYCLE", "SPREAD_WIDENING", "DEPTH_IMBALANCE")
         ]
+
+        logger.info(
+            "Fast path check",
+            symbol=sym,
+            hype_bursts=len(hype_bursts),
+            market_events=len(market_events),
+        )
 
         if not hype_bursts or not market_events:
             return
 
         cooldown = self.cooldowns.get(sym, 0.0)
-        if (now_ts - cooldown) < COOLDOWN_S:
+        if 0.0 <= (now_ts - cooldown) < COOLDOWN_S:
             return
 
         for burst in reversed(hype_bursts):
             for mev in reversed(market_events):
                 lag_s = mev["_ts"] - burst["_ts"]
-                if 0 < lag_s <= FAST_PATH_WINDOW_S:
+                if -60.0 <= lag_s <= FAST_PATH_WINDOW_S:
                     self.cooldowns[sym] = now_ts
+                    effective_lag = max(1.0, lag_s)
                     logger.info(
                         "FAST PATH: HYPE_BURST → market anomaly detected",
                         symbol=sym,
-                        lag_s=lag_s,
+                        lag_s=effective_lag,
                         burst_type=burst.get("type"),
                         market_type=mev.get("type"),
                     )
@@ -239,7 +244,7 @@ class AlignmentEngine:
                         sym=sym,
                         social_anom=burst,
                         market_anom=mev,
-                        lag_s=lag_s,
+                        lag_s=effective_lag,
                         xcorr_peak=0.85,  # estimated for fast-path
                         p_value=0.0,      # qualifies without test
                         fast_path=True,
@@ -273,10 +278,10 @@ class AlignmentEngine:
         else:
             # Fallback: minimal arrays
             n = ALIGN_LOOKBACK_S
-            h = np.zeros(n)
-            v = np.zeros(n)
-            a = np.zeros(n)
-            _spread_rel = np.zeros(n)
+            h = zeros(n, dtype=float)
+            v = zeros(n, dtype=float)
+            a = zeros(n, dtype=float)
+            _spread_rel = zeros(n, dtype=float)
 
         # Inject latest hype into h[-1] if available
         if sym in self.hype_cache:
@@ -286,7 +291,7 @@ class AlignmentEngine:
         best_lag_s, xcorr_peak = normalized_xcorr(h, v, LAG_MIN_S, LAG_MAX_S)
 
         # --- Permutation test (P4-T03) ---
-        window_id = datetime.datetime.utcfromtimestamp(now_ts).strftime("%Y%m%d%H%M")
+        window_id = datetime.datetime.fromtimestamp(now_ts, tz=datetime.timezone.utc).strftime("%Y%m%d%H%M")
         p_value = permutation_test(
             h, v, xcorr_peak, sym, window_id, b=500
         )
@@ -297,16 +302,16 @@ class AlignmentEngine:
         # --- Volume z-score ---
         n_vol = max(len(v), 1)
         vol_last = float(v[-1]) if n_vol > 0 else 0.0
-        vol_median = float(np.median(v))
-        vol_mad = float(np.median(np.abs(v - vol_median)))
+        vol_median = float(median(v))
+        vol_mad = float(median(abs(v - vol_median)))
         vol_sigma = max(vol_mad * 1.4826, 1e-9)
         volume_z = max(0.0, (vol_last - vol_median) / vol_sigma)
         self.volume_z_cache[sym] = volume_z
 
         # --- Price component ---
         # |ret_5m| from last 300 samples of a(t) and 1-h sigma from a(t)
-        ret_5m = float(np.sum(a[-300:])) if len(a) >= 300 else float(np.sum(a))
-        sigma_1h = max(float(np.std(a[-3600:])) if len(a) >= 3600 else float(np.std(a)), 1e-9)
+        ret_5m = float(a[-300:].sum()) if len(a) >= 300 else float(a.sum())
+        sigma_1h = max(float(a[-3600:].std()) if len(a) >= 3600 else float(a.std()), 1e-9)
 
         # --- Ring score from active cases (placeholder; Phase 5 will fill) ---
         ring_score = 0.0  # updated by orchestrator in Phase 5
@@ -327,9 +332,7 @@ class AlignmentEngine:
             micro_score=micro_score,
         )
 
-        now_iso = datetime.datetime.utcfromtimestamp(now_ts).replace(
-            tzinfo=datetime.timezone.utc
-        ).isoformat()
+        now_iso = datetime.datetime.fromtimestamp(now_ts, tz=datetime.timezone.utc).isoformat()
 
         logger.info(
             "MRS computed",

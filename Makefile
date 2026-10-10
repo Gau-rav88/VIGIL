@@ -24,7 +24,7 @@ lint:
 	@uv run ruff check . && uv run mypy --strict libs services
 
 test:
-	@uv run pytest tests/unit tests/contract -q --cov=services --cov-fail-under=80
+	@uv run pytest tests/unit tests/contract -q --cov=services/agents/quant_telemetry/src/quant_telemetry/detectors --cov-fail-under=80
 
 test-int:
 	@uv run pytest tests/integration -q

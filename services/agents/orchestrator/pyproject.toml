@@ -6,6 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     "vigil-common",
     "langgraph>=0.2.0",
+    "langgraph-sdk>=0.4.4",
     "jinja2>=3.1.4",
 ]
 

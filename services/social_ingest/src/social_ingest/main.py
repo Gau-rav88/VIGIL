@@ -28,8 +28,8 @@ class SocialIngester:
         self.producer: AIOKafkaProducer | None = None
         self.running = False
         self.stats = {"messages": 0, "errors": 0, "dlq": 0, "duplicates": 0}
-        # LRU deduplication cache: (platform, channel_id, message_id) -> bool
-        self.dedupe_cache: collections.OrderedDict[tuple[str, str, str], bool] = (
+        # LRU deduplication cache: (platform, channel_id, message_id) -> float
+        self.dedupe_cache: collections.OrderedDict[tuple[str, str, str], float] = (
             collections.OrderedDict()
         )
         self.max_dedupe_entries = 100_000
@@ -136,13 +136,16 @@ class SocialIngester:
         data["message_id"] = pseudo_msg_id
 
         # 3. Deduplication check on (platform, channel_id, message_id) (FR-SOC-07)
+        now_epoch = datetime.datetime.now(datetime.timezone.utc).timestamp()
         dedupe_key = (platform, channel_id, pseudo_msg_id)
         if dedupe_key in self.dedupe_cache:
-            self.stats["duplicates"] += 1
-            logger.debug("Dropped duplicate social message", dedupe_key=dedupe_key)
-            return
+            last_seen = self.dedupe_cache[dedupe_key]
+            if (now_epoch - last_seen) < 30.0:
+                self.stats["duplicates"] += 1
+                logger.debug("Dropped duplicate social message", dedupe_key=dedupe_key)
+                return
 
-        self.dedupe_cache[dedupe_key] = True
+        self.dedupe_cache[dedupe_key] = now_epoch
         if len(self.dedupe_cache) > self.max_dedupe_entries:
             self.dedupe_cache.popitem(last=False)
 

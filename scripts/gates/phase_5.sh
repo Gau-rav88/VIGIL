@@ -99,12 +99,16 @@ else
 fi
 
 # AC-GRA-03: Graph API export latency p95 < 800 ms
-p95_val=$(uv run python -c "
-import time, urllib.request, numpy as np
+TOKEN=$(curl -fsS -X POST "http://localhost:8001/api/v1/auth/dev-token" -H 'content-type: application/json' -d '{"sub":"gate5","role":"investigator"}' 2>/dev/null | jq -r .token 2>/dev/null || echo "")
+p95_val=$(GATE_TOKEN="$TOKEN" uv run python -c "
+import time, urllib.request, numpy as np, os
+token = os.environ.get('GATE_TOKEN', '')
+headers = {'Authorization': f'Bearer {token}'} if token else {}
 lat = []
 for _ in range(100):
     t0 = time.perf_counter()
-    with urllib.request.urlopen('http://localhost:8001/api/v1/cases/case_01/graph') as resp:
+    req = urllib.request.Request('http://localhost:8001/api/v1/cases/case_01/graph', headers=headers)
+    with urllib.request.urlopen(req) as resp:
         _ = resp.read()
     lat.append((time.perf_counter() - t0) * 1000.0)
 p95 = float(np.percentile(lat, 95))

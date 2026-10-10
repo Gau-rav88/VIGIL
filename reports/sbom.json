@@ -1,0 +1,408 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "serialNumber": "urn:uuid:vigil-v1.0.0-sbom",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-10-10T19:30:31.975762+00:00",
+    "component": {
+      "name": "Project VIGIL",
+      "version": "1.0.0",
+      "type": "application",
+      "description": "Autonomous Market Surveillance & Forensic Platform"
+    }
+  },
+  "components": [
+    {
+      "name": "annotated-types",
+      "version": "0.8.0",
+      "type": "python-package"
+    },
+    {
+      "name": "anyio",
+      "version": "4.15.1",
+      "type": "python-package"
+    },
+    {
+      "name": "ast-serialize",
+      "version": "0.12.1",
+      "type": "python-package"
+    },
+    {
+      "name": "attrs",
+      "version": "26.1.0",
+      "type": "python-package"
+    },
+    {
+      "name": "certifi",
+      "version": "2026.7.22",
+      "type": "python-package"
+    },
+    {
+      "name": "charset-normalizer",
+      "version": "3.5.2",
+      "type": "python-package"
+    },
+    {
+      "name": "coverage",
+      "version": "7.16.2",
+      "type": "python-package"
+    },
+    {
+      "name": "distro",
+      "version": "1.9.0",
+      "type": "python-package"
+    },
+    {
+      "name": "h11",
+      "version": "0.16.0",
+      "type": "python-package"
+    },
+    {
+      "name": "httpcore",
+      "version": "1.0.9",
+      "type": "python-package"
+    },
+    {
+      "name": "httpcore2",
+      "version": "2.13.1 ; sys_platform != 'emscripten'",
+      "type": "python-package"
+    },
+    {
+      "name": "httpx",
+      "version": "0.28.1",
+      "type": "python-package"
+    },
+    {
+      "name": "httpx2",
+      "version": "2.13.1",
+      "type": "python-package"
+    },
+    {
+      "name": "idna",
+      "version": "3.20",
+      "type": "python-package"
+    },
+    {
+      "name": "iniconfig",
+      "version": "2.3.1",
+      "type": "python-package"
+    },
+    {
+      "name": "jsonpatch",
+      "version": "1.33",
+      "type": "python-package"
+    },
+    {
+      "name": "jsonpointer",
+      "version": "3.2.0",
+      "type": "python-package"
+    },
+    {
+      "name": "jsonschema",
+      "version": "4.26.0",
+      "type": "python-package"
+    },
+    {
+      "name": "jsonschema-specifications",
+      "version": "2025.9.1",
+      "type": "python-package"
+    },
+    {
+      "name": "langchain-core",
+      "version": "1.6.7",
+      "type": "python-package"
+    },
+    {
+      "name": "langchain-protocol",
+      "version": "0.0.19",
+      "type": "python-package"
+    },
+    {
+      "name": "langgraph-checkpoint",
+      "version": "4.2.0",
+      "type": "python-package"
+    },
+    {
+      "name": "langgraph-checkpoint-postgres",
+      "version": "3.1.2",
+      "type": "python-package"
+    },
+    {
+      "name": "langsmith",
+      "version": "0.14.4",
+      "type": "python-package"
+    },
+    {
+      "name": "librt",
+      "version": "0.16.0 ; platform_python_implementation != 'PyPy'",
+      "type": "python-package"
+    },
+    {
+      "name": "mypy",
+      "version": "2.4.0",
+      "type": "python-package"
+    },
+    {
+      "name": "mypy-extensions",
+      "version": "1.1.0",
+      "type": "python-package"
+    },
+    {
+      "name": "orjson",
+      "version": "3.13.0",
+      "type": "python-package"
+    },
+    {
+      "name": "ormsgpack",
+      "version": "1.12.2",
+      "type": "python-package"
+    },
+    {
+      "name": "packaging",
+      "version": "26.3",
+      "type": "python-package"
+    },
+    {
+      "name": "pathspec",
+      "version": "1.1.1",
+      "type": "python-package"
+    },
+    {
+      "name": "pillow",
+      "version": "12.3.0",
+      "type": "python-package"
+    },
+    {
+      "name": "pluggy",
+      "version": "1.6.0",
+      "type": "python-package"
+    },
+    {
+      "name": "psycopg",
+      "version": "3.3.6",
+      "type": "python-package"
+    },
+    {
+      "name": "psycopg-pool",
+      "version": "3.3.3",
+      "type": "python-package"
+    },
+    {
+      "name": "pydantic",
+      "version": "2.13.5",
+      "type": "python-package"
+    },
+    {
+      "name": "pydantic-core",
+      "version": "2.46.5",
+      "type": "python-package"
+    },
+    {
+      "name": "pygments",
+      "version": "2.21.0",
+      "type": "python-package"
+    },
+    {
+      "name": "pypdf",
+      "version": "6.20.0",
+      "type": "python-package"
+    },
+    {
+      "name": "pytest",
+      "version": "9.1.1",
+      "type": "python-package"
+    },
+    {
+      "name": "pytest-asyncio",
+      "version": "1.4.0",
+      "type": "python-package"
+    },
+    {
+      "name": "pytest-cov",
+      "version": "7.1.0",
+      "type": "python-package"
+    },
+    {
+      "name": "pyyaml",
+      "version": "6.0.3",
+      "type": "python-package"
+    },
+    {
+      "name": "qrcode",
+      "version": "8.2",
+      "type": "python-package"
+    },
+    {
+      "name": "referencing",
+      "version": "0.37.0",
+      "type": "python-package"
+    },
+    {
+      "name": "reportlab",
+      "version": "5.0.1",
+      "type": "python-package"
+    },
+    {
+      "name": "requests",
+      "version": "2.34.2",
+      "type": "python-package"
+    },
+    {
+      "name": "requests-toolbelt",
+      "version": "1.0.0",
+      "type": "python-package"
+    },
+    {
+      "name": "rpds-py",
+      "version": "2026.9.1",
+      "type": "python-package"
+    },
+    {
+      "name": "ruff",
+      "version": "0.17.0",
+      "type": "python-package"
+    },
+    {
+      "name": "sniffio",
+      "version": "1.3.1",
+      "type": "python-package"
+    },
+    {
+      "name": "tenacity",
+      "version": "9.2.1",
+      "type": "python-package"
+    },
+    {
+      "name": "truststore",
+      "version": "0.10.4 ; sys_platform != 'emscripten'",
+      "type": "python-package"
+    },
+    {
+      "name": "typing-extensions",
+      "version": "4.16.0",
+      "type": "python-package"
+    },
+    {
+      "name": "typing-inspection",
+      "version": "0.4.4",
+      "type": "python-package"
+    },
+    {
+      "name": "urllib3",
+      "version": "2.8.0",
+      "type": "python-package"
+    },
+    {
+      "name": "uuid-utils",
+      "version": "0.17.1",
+      "type": "python-package"
+    },
+    {
+      "name": "websockets",
+      "version": "16.1.1",
+      "type": "python-package"
+    },
+    {
+      "name": "xxhash",
+      "version": "4.0.1",
+      "type": "python-package"
+    },
+    {
+      "name": "zstandard",
+      "version": "0.25.0",
+      "type": "python-package"
+    },
+    {
+      "name": "@tanstack/react-query",
+      "version": "^5.40.0",
+      "type": "npm-package"
+    },
+    {
+      "name": "cytoscape",
+      "version": "^3.29.0",
+      "type": "npm-package"
+    },
+    {
+      "name": "cytoscape-fcose",
+      "version": "^2.2.0",
+      "type": "npm-package"
+    },
+    {
+      "name": "d3-scale",
+      "version": "^4.0.2",
+      "type": "npm-package"
+    },
+    {
+      "name": "lucide-react",
+      "version": "^0.383.0",
+      "type": "npm-package"
+    },
+    {
+      "name": "next",
+      "version": "14.2.4",
+      "type": "npm-package"
+    },
+    {
+      "name": "react",
+      "version": "^18.3.1",
+      "type": "npm-package"
+    },
+    {
+      "name": "react-dom",
+      "version": "^18.3.1",
+      "type": "npm-package"
+    },
+    {
+      "name": "recharts",
+      "version": "^2.12.7",
+      "type": "npm-package"
+    },
+    {
+      "name": "zustand",
+      "version": "^4.5.2",
+      "type": "npm-package"
+    },
+    {
+      "name": "@types/cytoscape",
+      "version": "^3.19.16",
+      "type": "npm-dev-package"
+    },
+    {
+      "name": "@types/d3-scale",
+      "version": "^4.0.9",
+      "type": "npm-dev-package"
+    },
+    {
+      "name": "@types/node",
+      "version": "^20.14.0",
+      "type": "npm-dev-package"
+    },
+    {
+      "name": "@types/react",
+      "version": "^18.3.3",
+      "type": "npm-dev-package"
+    },
+    {
+      "name": "@types/react-dom",
+      "version": "^18.3.0",
+      "type": "npm-dev-package"
+    },
+    {
+      "name": "postcss",
+      "version": "^8.4.38",
+      "type": "npm-dev-package"
+    },
+    {
+      "name": "tailwindcss",
+      "version": "^3.4.4",
+      "type": "npm-dev-package"
+    },
+    {
+      "name": "typescript",
+      "version": "^5.4.5",
+      "type": "npm-dev-package"
+    }
+  ],
+  "total_components": 78
+}

@@ -69,6 +69,13 @@ class MinHashLSH:
         return matches / len(sig1)
 
     def purge_expired(self, current_ts: float) -> None:
+        if self.records and any(r["ts"] > (current_ts + 60.0) for r in self.records.values()):
+            self.records.clear()
+            self.clusters.clear()
+            for b in self.lsh_buckets:
+                b.clear()
+            return
+
         cutoff = current_ts - self.sliding_window_s
         expired_ids = [
             mid for mid, r in self.records.items() if r["ts"] < cutoff

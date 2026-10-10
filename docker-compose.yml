@@ -6,10 +6,16 @@ x-py: &py
     context: .
     dockerfile: docker/python.Dockerfile
   env_file: .env
+  environment:
+    PYTHONPATH: "/app/libs/vigil_common/src:/app/services/evidence_engine/src:/app/services/agents/orchestrator/src:/app/services/agents/attribution/src:/app/services/agents/quant_telemetry/src:/app/services/agents/social_intel/src:/app/services/alignment_engine/src:/app/services/market_ingest/src:/app/services/social_ingest/src:/app/services/stream_sink/src:/app/services/verifier/src:/app/services/api/src:/app/services/simulator/src"
   restart: unless-stopped
   volumes:
     - "./config:/app/config:ro"
     - "./keys:/keys:ro"
+    - "./libs:/app/libs:ro"
+    - "./services:/app/services:ro"
+    - "./scripts:/app/scripts:ro"
+    - "./migrations:/app/migrations:ro"
   depends_on:
     redpanda: { condition: service_healthy }
     timescale: { condition: service_healthy }
@@ -98,8 +104,9 @@ services:
     volumes:
       - neo4j-data:/data
     healthcheck:
-      test: ["CMD-SHELL", "cypher-shell -u neo4j -p vigilneo4j 'RETURN 1' || exit 1"]
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:7474 || exit 1"]
       interval: 10s
+      timeout: 5s
       retries: 30
 
   minio:
@@ -132,7 +139,9 @@ services:
   market_ingest:
     <<: *py
     command: ["python", "-m", "market_ingest.main"]
-    environment: { HEALTH_PORT: "8000" }
+    environment:
+      HEALTH_PORT: "8000"
+      PYTHONPATH: "/app/libs/vigil_common/src:/app/services/evidence_engine/src:/app/services/agents/orchestrator/src:/app/services/agents/attribution/src:/app/services/agents/quant_telemetry/src:/app/services/agents/social_intel/src:/app/services/alignment_engine/src:/app/services/market_ingest/src:/app/services/social_ingest/src:/app/services/stream_sink/src:/app/services/verifier/src:/app/services/api/src:/app/services/simulator/src"
     depends_on:
       migrate: { condition: service_completed_successfully }
       redpanda-init: { condition: service_completed_successfully }
@@ -231,7 +240,7 @@ services:
   prometheus:
     image: prom/prometheus:v2.54.1
     volumes:
-      - "./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro"
+      - "./infra/prometheus:/etc/prometheus:ro"
     ports:
       - "9090:9090"
 
