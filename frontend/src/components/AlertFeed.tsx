@@ -45,7 +45,7 @@ export function AlertFeed({ alerts, onInvestigate }: AlertFeedProps) {
             <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800/80">
               <span className="text-[10px] text-slate-500 font-mono">{formatTimestamp(alt.ts)}</span>
               <button
-                onClick={() => onInvestigate?.(alt.symbol)}
+                onClick={() => alt.symbol && onInvestigate?.(alt.symbol)}
                 className="text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-0.5 transition"
               >
                 <span>Investigate Case</span>

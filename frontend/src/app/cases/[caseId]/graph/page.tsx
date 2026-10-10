@@ -23,8 +23,8 @@ import {
 
 interface NodeItem {
   id: string;
-  type: string;
-  label: string;
+  type?: string;
+  label?: string;
   cluster?: number;
   volume?: number;
 }
@@ -32,7 +32,7 @@ interface NodeItem {
 interface EdgeItem {
   source: string;
   target: string;
-  type: string;
+  type?: string;
   confidence?: number;
   qty?: number;
   isCycle?: boolean;
@@ -77,7 +77,10 @@ export default function CaseGraphPage() {
         }));
 
         // Add cross-links between accounts (inferred links + trades)
-        const eList: EdgeItem[] = [...(data.edges || [])];
+        const eList: EdgeItem[] = (data.edges || []).map((e: any) => ({
+          ...e,
+          type: e.type || "LINKED",
+        }));
         for (let i = 1; i <= 6; i++) {
           const s = `acc_${i.toString().padStart(2, "0")}`;
           const t = `acc_${(i + 1).toString().padStart(2, "0")}`;

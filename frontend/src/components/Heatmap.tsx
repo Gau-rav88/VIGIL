@@ -74,10 +74,10 @@ export function Heatmap({ tickers, onSelectTicker }: HeatmapProps) {
                 </div>
                 <span
                   className={`text-[10px] font-mono font-semibold ${
-                    t.change_pct >= 0 ? "text-emerald-400" : "text-rose-400"
+                    (t.change_pct ?? 0) >= 0 ? "text-emerald-400" : "text-rose-400"
                   }`}
                 >
-                  {formatPct(t.change_pct)}
+                  {formatPct(t.change_pct ?? 0)}
                 </span>
               </div>
 
@@ -90,7 +90,7 @@ export function Heatmap({ tickers, onSelectTicker }: HeatmapProps) {
                       isCritical ? "text-rose-400" : isElevated ? "text-amber-400" : "text-slate-400"
                     }`}
                   >
-                    {(t.mrs * 100).toFixed(0)}%
+                    {((t.mrs ?? t.mrs_score ?? 0) * 100).toFixed(0)}%
                   </span>
                 </div>
                 <div className="w-full bg-slate-800/80 h-1.5 rounded-full overflow-hidden">
@@ -102,14 +102,14 @@ export function Heatmap({ tickers, onSelectTicker }: HeatmapProps) {
                         ? "bg-amber-400"
                         : "bg-emerald-500/40"
                     }`}
-                    style={{ width: `${Math.max(5, t.mrs * 100)}%` }}
+                    style={{ width: `${Math.max(5, (t.mrs ?? t.mrs_score ?? 0) * 100)}%` }}
                   />
                 </div>
               </div>
 
               <div className="flex justify-between items-center text-[9px] text-slate-500">
-                <span>{t.tier.replace("_", " ")}</span>
-                <span>{formatCompactNumber(t.volume_24h)} vol</span>
+                <span>{(t.tier ?? "ALL").replace("_", " ")}</span>
+                <span>{formatCompactNumber(t.volume_24h ?? t.volume ?? 0)} vol</span>
               </div>
             </div>
           );

@@ -2,6 +2,9 @@ name: vigil
 
 x-py: &py
   image: vigil-python:latest
+  build:
+    context: .
+    dockerfile: docker/python.Dockerfile
   env_file: .env
   restart: unless-stopped
   volumes:
@@ -43,7 +46,7 @@ services:
       redpanda: { condition: service_healthy }
     volumes:
       - "./infra/redpanda/create_topics.sh:/create_topics.sh:ro"
-    entrypoint: ["/bin/bash", "/create_topics.sh"]
+    entrypoint: ["/bin/sh", "/create_topics.sh"]
     restart: "no"
 
   redpanda-console:

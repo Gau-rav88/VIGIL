@@ -10,8 +10,8 @@ This ledger tracks phase-by-phase completion, environment specifications, datase
 |---|---|---|---|
 | **Phase 1** | Foundation, Infrastructure & Data Layer | **COMPLETE** | 7/7 checks passed (see below) |
 | **Phase 2** | Market Telemetry & Detectors | **COMPLETE** | 12/12 checks passed (see below) |
-| **Phase 3** | Social Intelligence & Hype Scoring | PENDING | Not started |
-| **Phase 4** | Cross-Modal Alignment & MRS | PENDING | Not started |
+| **Phase 3** | Social Intelligence & Hype Scoring | **COMPLETE** | 10/10 checks passed (see below) |
+| **Phase 4** | Cross-Modal Alignment & MRS | **COMPLETE** | 9/9 checks passed (see below) |
 | **Phase 5** | Graph Attribution & Entities | PENDING | Not started |
 | **Phase 6** | LangGraph Orchestration & Evidence | PENDING | Not started |
 | **Phase 7** | API & Investigator UI Workbench | PENDING | Not started |
@@ -131,3 +131,120 @@ GATE 2 RESULT: PASS (12/12 checks passed)
    - **Simulator PRNG Determinism (`P2-G2`):** PCG64 PRNG ensures identical scenario + seed yields byte-identical NDJSON streams.
    - **Code Quality:** 100% strict typing compliance (`mypy --strict` passes across all 67 source files) and 90% unit test coverage on `quant_telemetry`.
 
+---
+
+## Phase 3 Gate Verification Evidence
+
+Command executed: `make gate PHASE=3` / `scripts/gates/phase_3.sh`
+
+```
+================================================================================
+Project VIGIL - Gate 3 Verification (Social Intelligence & Hype Scoring)
+================================================================================
+
+| ID         | Check Description                             | Status | Detail                         |
+|------------|-----------------------------------------------|--------|--------------------------------|
+| P3-G0      | Core infra & services healthy                 | PASS   | Timescale, Neo4j, Redis, Redpanda |
+| P3-G1      | Non-public visibility rejected (DLQ)          | PASS   | Reason VISIBILITY_NOT_PERMITTED |
+| P3-G2      | LLM timeout & concurrency bounds              | PASS   | Timeout 2.0s & concurrency 8   |
+| P3-G3      | HMAC pseudonymization (zero raw handles)      | PASS   | Zero raw handles/IDs stored    |
+| AC-SOC-01  | Ticker F1 & CTA macro-F1 on corpus            | PASS   | Fallback >=0.85/0.70, LLM >=0.92/0.80 |
+| AC-SOC-02  | Offline pipeline with FALLBACK_RULES          | PASS   | ANTHROPIC_API_KEY empty mode verified |
+| AC-SOC-03  | pump_dump_ring_01 HYPE_BURST within 60s       | PASS   | Emitted within 27.0s <= 60s    |
+| P3-TEST    | social_intel unit test suite coverage >= 80%  | PASS   | Coverage meets >= 80% threshold |
+| P3-LINT    | Ruff and Mypy strict clean                    | PASS   | All files typed and lint-free  |
+| P3-REPORT  | reports/social_eval.md generated and non-empty | PASS   | Social evaluation report ready |
+
+================================================================================
+GATE 3 RESULT: PASS (10/10 checks passed)
+================================================================================
+```
+
+---
+
+## Phase 3 Handoff Block
+
+1. **Evaluation Metrics & Operating Modes (`reports/social_eval.md`):**
+   - **Corpus Provenance:** Synthetic labeled corpus draft (`datasets/data/social_labeled_v1.draft.jsonl`, 504 rows) covering English and Hinglish across all 6 CTA classes and target tickers.
+   - **`FALLBACK_RULES` Mode:** Ticker F1 = **0.9935** (target ≥ 0.85), CTA Macro-F1 = **0.8642** (target ≥ 0.70). Fully offline capable using Unicode NFKC normalization, cashtag/alias resolution, lexicon matching (`config/cta_lexicon.yaml`), and target price extraction.
+   - **`LLM` Mode:** Ticker F1 = **0.9935** (target ≥ 0.92), CTA Macro-F1 = **1.0000** (target ≥ 0.80). Refines signals with bounded concurrency (`LLM_MAX_CONCURRENCY=8`) and timeout (`LLM_TIMEOUT_S=2.0`).
+
+2. **Hype Scorer Calibration & Weights (`config/hype_weights.yaml`):**
+   - **Formula Components:**
+     - $f_{\text{rate}}$: Message arrival rate z-score vs 1-hour EWMA baseline ($\alpha=0.002$ per 5s step, $\sigma_{\min}=0.5$).
+     - $f_{\text{auth}}$: Unique author count z-score in 60s sliding window.
+     - $f_{\text{cta}}$: Non-neutral CTA confidence sum / $N$.
+     - $f_{\text{dup}}$: Ratio of messages in MinHash-LSH near-duplicate clusters of size $\ge 3$.
+     - $f_{\text{urg}}$: Average urgency score.
+     - $f_{\text{xch}}$: Cross-channel spread factor $\min(1.0, (\text{channels} - 1) / 3.0)$.
+   - **Weights:** $f_{\text{rate}}=0.25, f_{\text{auth}}=0.15, f_{\text{cta}}=0.20, f_{\text{dup}}=0.15, f_{\text{urg}}=0.10, f_{\text{xch}}=0.15$.
+   - **Small Sample Guardrail:** If $N < 5$, hype score is strictly capped at $\le 20.0$.
+   - **Anomaly Thresholds:** `HYPE_BURST` triggers when $\text{hype\_score} \ge 70.0$ continuously for $\ge 30.0$s; `NEAR_DUPLICATE_CAMPAIGN` triggers on clusters with $\ge 5$ messages, $\ge 3$ authors, $\ge 2$ channels within 5 min.
+
+3. **Data Plane & Compliance Invariants Verified:**
+   - **Visibility Gate (`P3-G1`):** Non-public or unlawful messages are rejected to `dlq.social` with diagnostic reason `VISIBILITY_NOT_PERMITTED`.
+   - **Zero Raw PII (`P3-G3`):** HMAC-SHA256 pseudonymization converts all `author_id` and `message_id` into 22-character base64url tokens using keyed pepper before persistence or publication.
+   - **AC-SOC-03 Verified:** In `pump_dump_ring_01`, `HYPE_BURST` anomaly on `ZENITHSME` is emitted within 27.0 seconds of the first coordinated pump message (comfortably beating the $\le 60$s requirement).
+   - **Code Quality (`P3-TEST`, `P3-LINT`):** 85% test coverage on `social_intel`, 0 ruff lint errors, and 100% strict mypy compliance across all 73 source files.
+
+
+
+
+---
+
+## Phase 4 Gate Verification Evidence
+
+Command executed: `scripts/gates/phase_4.sh`
+
+```
+================================================================================
+Project VIGIL - Gate 4 Verification (Cross-Modal Alignment & MRS)
+================================================================================
+
+| ID         | Check Description                                  | Status | Detail                                   |
+|------------|----------------------------------------------------|--------|------------------------------------------|
+| P4-LINT    | Ruff lint clean across common & alignment_engine    | PASS   | 0 lint errors                            |
+| P4-MYPY    | Mypy strict clean                                  | PASS   | 30 source files typed & clean            |
+| P4-G3      | MRS component bounds in [0,1], weights sum to 1.00  | PASS   | 6/6 unit tests passed                    |
+| P4-G1      | Deterministic p-value and lag given same inputs     | PASS   | Seeded circular block-shuffle PRNG       |
+| P4-G2      | 30-s watermark preserves near-boundary late events  | PASS   | 4/4 integration tests passed             |
+| AC-ALN-01  | Cross-modal alignment detected for ZENITHSME       | PASS   | best_lag_s > 0 (social leads, mean 150s) |
+| AC-ALN-02  | baseline_01 false-positive control (seeds 1-5)      | PASS   | 0 false positive cases across 5 seeds    |
+| AC-ALN-03  | MRS at dump start substantially exceeds baseline   | PASS   | 68.05 vs 4.65 (14.63x ratio)             |
+| AC-ALN-04  | reports/alignment_eval.md generated & non-empty    | PASS   | ROC sweep & operating point committed    |
+
+================================================================================
+GATE 4 RESULT: PASS (9/9 checks passed)
+================================================================================
+```
+
+---
+
+## Phase 4 Handoff Block
+
+1. **Operating Thresholds & Selection Rationale (`reports/alignment_eval.md`):**
+   - **Significance Threshold:** $p < 0.01$ via circular block shuffle ($B=500$, block length 60s) with deterministic seed $(symbol, window\_id)$.
+   - **XCorr Peak Threshold:** $\rho_{\text{peak}} \ge 0.30$ computed via FFT normalized cross-correlation ($\tau \in [-120, +1800]$s) on standardized series.
+   - **Lag Direction:** $\text{best\_lag\_s} > 0$ strictly enforces that social hype leads market telemetry.
+   - **Performance on Scenarios:**
+     - `pump_dump_ring_01` (Seeds 1–5): 100% recall (5/5) with measured lag $\approx 150$s ($\pm 15$s), matching simulator ring reaction lag.
+     - `baseline_01` (Seeds 1–5): 0 false positives ($p \ge 0.01$ or $\rho_{\text{peak}} < 0.30$).
+     - Overall Precision = 1.0000, Recall = 1.0000, F1 = 1.0000.
+
+2. **Event Fast-Path Bypass (`P4-T04`):**
+   - Detects `HYPE_BURST` followed by `VOLUME_SPIKE` or `PRICE_JUMP` on the same ticker within $0 < \Delta t \le 900$s (15 minutes).
+   - Fast-path qualifies immediately without requiring the full permutation test run, ensuring latency $\le 1$ second on confirmed coordinated attacks.
+
+3. **Manipulation Risk Score (MRS) Calibration (`ARCHITECTURE.md §7.4`):**
+   - Formula:
+     $$\text{MRS} = 100 \times \left(0.30 \frac{\text{hype}}{100} + 0.25 \min\left(1, \frac{z_{\text{vol}}}{10}\right) + 0.15 \cdot \text{align} + 0.15 \cdot \text{ring} + 0.10 \cdot \text{price} + 0.05 \cdot \text{micro}\right)$$
+   - Weights strictly sum to $1.00$, and all components are bounded in $[0, 1]$.
+   - **Demo Scenario Sample Values (`pump_dump_ring_01`):**
+     - Baseline ($t=0$s): $\text{MRS} = 4.65 / 100$.
+     - Dump Start ($t=1140$s): $\text{MRS} = 68.05 / 100$ ($14.63\times$ escalation).
+   - Persisted every minute into TimescaleDB `vigil.mrs_1m` and cached in Redis `mrs:{symbol}` with TTL 120s.
+
+4. **Triggers & Downstream Handoff (`case.trigger` and `anomaly.fused`):**
+   - Verified publishing of `CROSS_MODAL_ALIGNMENT` `AnomalyEvent` to Kafka topic `anomaly.fused`.
+   - Verified publication of `CaseTrigger` payload to Kafka topic `case.trigger`.
+   - Redis set `watchlist:symbols` automatically updated with elevated tickers for Phase 5 graph attribution and Phase 6 LangGraph case orchestration.

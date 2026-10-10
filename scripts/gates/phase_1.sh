@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+export PATH="/c/Users/Soham/AppData/Local/Programs/Python/Python313/Scripts:/c/Users/Soham/AppData/Local/Programs/Python/Python313:$HOME/.local/bin:$PATH"
+
+PYTHON_BIN="python"
+if command -v python3 >/dev/null 2>&1; then
+  PYTHON_BIN="python3"
+fi
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${ROOT_DIR}"
 
@@ -62,7 +69,7 @@ fi
 # P1-G5: Tampering verification fails on corrupted file
 mkdir -p datasets/data/test_tamper
 echo "clean" > datasets/data/test_tamper/test.txt
-test_hash=$(python3 -c "import hashlib; print(hashlib.sha256(open('datasets/data/test_tamper/test.txt', 'rb').read()).hexdigest())")
+test_hash=$("$PYTHON_BIN" -c "import hashlib; print(hashlib.sha256(open('datasets/data/test_tamper/test.txt', 'rb').read()).hexdigest())")
 cat << EOF > datasets/data/.fetch_receipt.json
 {
   "repo_url": "test",

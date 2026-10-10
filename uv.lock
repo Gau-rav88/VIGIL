@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -74,14 +74,20 @@ name = "alignment-engine"
 version = "1.0.0"
 source = { editable = "services/alignment_engine" }
 dependencies = [
+    { name = "aiokafka" },
+    { name = "asyncpg" },
     { name = "numpy" },
+    { name = "redis" },
     { name = "scipy" },
     { name = "vigil-common" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "aiokafka", specifier = ">=0.14.0" },
+    { name = "asyncpg", specifier = ">=0.32.0" },
     { name = "numpy", specifier = ">=1.26.0" },
+    { name = "redis", extras = ["asyncio"], specifier = ">=8.1.0" },
     { name = "scipy", specifier = ">=1.13.0" },
     { name = "vigil-common", editable = "libs/vigil_common" },
 ]

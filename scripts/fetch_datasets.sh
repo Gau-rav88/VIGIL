@@ -17,7 +17,10 @@ fi
 
 DATASET_REPO_URL="${DATASET_REPO_URL:-}"
 DATASET_REPO_REF="${DATASET_REPO_REF:-main}"
-GITHUB_TOKEN="${GITHUB_TOKEN:-}"
+PYTHON_BIN="python"
+if command -v python3 >/dev/null 2>&1; then
+  PYTHON_BIN="python3"
+fi
 
 # Check for --verify-only mode
 if [[ "${1:-}" == "--verify-only" ]]; then
@@ -27,7 +30,7 @@ if [[ "${1:-}" == "--verify-only" ]]; then
     exit 1
   fi
 
-  python3 - << 'EOF'
+  "$PYTHON_BIN" - << 'EOF'
 import sys, json, hashlib
 from pathlib import Path
 
@@ -89,7 +92,7 @@ RESOLVED_COMMIT=$(cd "${TEMP_CLONE_DIR}" && git rev-parse HEAD)
 echo "Resolved commit SHA: ${RESOLVED_COMMIT}"
 
 # Parse manifest and copy matching files
-python3 - << EOF
+"$PYTHON_BIN" - << EOF
 import sys, yaml, shutil, hashlib, json
 from datetime import datetime, timezone
 from pathlib import Path
