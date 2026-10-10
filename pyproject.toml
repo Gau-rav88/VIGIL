@@ -72,3 +72,15 @@ pythonpath = [
     "services/agents/attribution/src",
     "services/agents/orchestrator/src",
 ]
+
+[dependency-groups]
+dev = [
+    "mypy>=2.4.0",
+    "pypdf>=6.20.0",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+    "qrcode>=8.2",
+    "reportlab>=5.0.1",
+    "ruff>=0.17.0",
+]

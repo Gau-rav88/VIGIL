@@ -100,6 +100,7 @@ export default function VerifyPage() {
               <input
                 type="radio"
                 name="mode"
+                aria-label="Check in this browser"
                 checked={mode === "browser"}
                 onChange={() => setMode("browser")}
                 className="accent-verified"
@@ -110,6 +111,7 @@ export default function VerifyPage() {
               <input
                 type="radio"
                 name="mode"
+                aria-label="Check on the server"
                 checked={mode === "server"}
                 onChange={() => setMode("server")}
                 className="accent-ink"
@@ -140,6 +142,7 @@ export default function VerifyPage() {
             id="file-upload-input"
             type="file"
             accept=".zip"
+            aria-label="Upload evidence bundle zip file"
             onChange={(e) => {
               if (e.target.files?.[0]) {
                 handleFileUpload(e.target.files[0]);

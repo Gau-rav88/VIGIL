@@ -22,16 +22,16 @@ export function Heatmap({ tickers, onSelectTicker }: HeatmapProps) {
   return (
     <div className="space-y-4">
       {/* Controls */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-panel bg-bg-raised border border-line">
         <div className="flex items-center space-x-1.5 w-full sm:w-auto">
           {(["ALL", "MICRO_SME", "LARGE_MID"] as const).map((tier) => (
             <button
               key={tier}
               onClick={() => setTierFilter(tier)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+              className={`px-3 py-1.5 rounded-cell text-xs font-semibold transition ${
                 tierFilter === tier
-                  ? "bg-slate-800 text-emerald-400 border border-emerald-500/30"
-                  : "text-slate-400 hover:text-slate-200"
+                  ? "bg-bg-sunken text-verified border border-verified"
+                  : "text-ink-muted hover:text-ink"
               }`}
             >
               {tier === "ALL" ? "All (40)" : tier === "MICRO_SME" ? "SME / Micro (10)" : "Large / Mid (30)"}
@@ -44,7 +44,7 @@ export function Heatmap({ tickers, onSelectTicker }: HeatmapProps) {
           placeholder="Filter ticker..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full sm:w-56 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50"
+          className="w-full sm:w-56 bg-bg-base border border-line rounded-cell px-3 py-1.5 text-xs text-ink placeholder:text-ink-faint focus:outline-none focus:border-focus"
         />
       </div>
 
@@ -54,27 +54,27 @@ export function Heatmap({ tickers, onSelectTicker }: HeatmapProps) {
           const isCritical = t.status === "MANIPULATION_DETECTED";
           const isElevated = t.status === "ELEVATED";
 
-          let borderClass = "border-slate-800/80 hover:border-slate-700 bg-slate-900/50";
+          let borderClass = "border-line hover:border-line-strong bg-bg-raised";
           if (isCritical) {
-            borderClass = "border-rose-500/60 bg-rose-950/20 shadow-lg shadow-rose-950/30 animate-pulse";
+            borderClass = "border-seal bg-seal-wash shadow-pop animate-pulse";
           } else if (isElevated) {
-            borderClass = "border-amber-500/40 bg-amber-950/10";
+            borderClass = "border-tag bg-tag-wash";
           }
 
           return (
             <div
               key={t.symbol}
               onClick={() => onSelectTicker?.(t)}
-              className={`p-3 rounded-xl border transition cursor-pointer flex flex-col justify-between h-28 relative overflow-hidden ${borderClass}`}
+              className={`p-3 rounded-panel border transition cursor-pointer flex flex-col justify-between h-28 relative overflow-hidden ${borderClass}`}
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <span className="font-mono font-bold text-white text-xs block">{t.symbol}</span>
-                  <span className="text-[10px] text-slate-400">{formatCurrency(t.price)}</span>
+                  <span className="font-mono font-bold text-ink text-xs block">{t.symbol}</span>
+                  <span className="text-[10px] text-ink-muted">{formatCurrency(t.price)}</span>
                 </div>
                 <span
                   className={`text-[10px] font-mono font-semibold ${
-                    (t.change_pct ?? 0) >= 0 ? "text-emerald-400" : "text-rose-400"
+                    (t.change_pct ?? 0) >= 0 ? "text-verified" : "text-seal"
                   }`}
                 >
                   {formatPct(t.change_pct ?? 0)}
@@ -84,32 +84,32 @@ export function Heatmap({ tickers, onSelectTicker }: HeatmapProps) {
               {/* MRS Meter */}
               <div className="space-y-1">
                 <div className="flex justify-between text-[9px]">
-                  <span className="text-slate-500">MRS</span>
+                  <span className="text-ink-muted">MRS</span>
                   <span
                     className={`font-mono font-bold ${
-                      isCritical ? "text-rose-400" : isElevated ? "text-amber-400" : "text-slate-400"
+                      isCritical ? "text-seal" : isElevated ? "text-tag-ink" : "text-ink-muted"
                     }`}
                   >
-                    {((t.mrs ?? t.mrs_score ?? 0) * 100).toFixed(0)}%
+                    {((t.mrs ?? 0) * 100).toFixed(0)}%
                   </span>
                 </div>
-                <div className="w-full bg-slate-800/80 h-1.5 rounded-full overflow-hidden">
+                <div className="w-full bg-bg-sunken h-1.5 rounded-chip overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all duration-500 ${
+                    className={`h-full rounded-chip transition-all duration-500 ${
                       isCritical
-                        ? "bg-rose-500"
+                        ? "bg-seal"
                         : isElevated
-                        ? "bg-amber-400"
-                        : "bg-emerald-500/40"
+                        ? "bg-tag"
+                        : "bg-verified"
                     }`}
-                    style={{ width: `${Math.max(5, (t.mrs ?? t.mrs_score ?? 0) * 100)}%` }}
+                    style={{ width: `${Math.max(5, (t.mrs ?? 0) * 100)}%` }}
                   />
                 </div>
               </div>
 
-              <div className="flex justify-between items-center text-[9px] text-slate-500">
+              <div className="flex justify-between items-center text-[9px] text-ink-muted">
                 <span>{(t.tier ?? "ALL").replace("_", " ")}</span>
-                <span>{formatCompactNumber(t.volume_24h ?? t.volume ?? 0)} vol</span>
+                <span>{formatCompactNumber(t.volume_24h ?? 0)} vol</span>
               </div>
             </div>
           );

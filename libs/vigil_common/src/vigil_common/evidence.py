@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from vigil_common.signing import FileEd25519Signer
 
@@ -41,14 +41,17 @@ class EvidenceEngine:
         # Delegate to evidence_engine builder
         from evidence_engine.builder import EvidenceEngine as CoreEvidenceEngine
         core = CoreEvidenceEngine(self.pg_dsn)
-        return await core.compile_dossier(
-            case_id=case_id,
-            symbol=symbol,
-            attribution_rings=attribution_rings,
-            anomalies=anomalies,
-            human_review=human_review,
-            version=version,
-            narrative_mode=narrative_mode,
-            custom_executive_summary=custom_executive_summary,
-            captured_at=captured_at,
+        return cast(
+            tuple[dict[str, Any], bytes],
+            await core.compile_dossier(
+                case_id=case_id,
+                symbol=symbol,
+                attribution_rings=attribution_rings,
+                anomalies=anomalies,
+                human_review=human_review,
+                version=version,
+                narrative_mode=narrative_mode,
+                custom_executive_summary=custom_executive_summary,
+                captured_at=captured_at,
+            ),
         )

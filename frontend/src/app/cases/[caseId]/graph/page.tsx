@@ -38,7 +38,7 @@ interface EdgeItem {
   isCycle?: boolean;
 }
 
-const CLUSTERS = ["#0072B2", "#E69F00", "#009E73", "#CC79A7", "#56B4E9", "#D55E00"];
+import { CLUSTER_COLORS as CLUSTERS } from "@/components/Graph/style";
 
 export default function CaseGraphPage() {
   const params = useParams();
@@ -204,6 +204,7 @@ export default function CaseGraphPage() {
               max="1.0"
               step="0.05"
               value={minConf}
+              aria-label="Link confidence threshold"
               onChange={(e) => setMinConf(parseFloat(e.target.value))}
               className="w-full accent-uv cursor-pointer"
             />
@@ -221,6 +222,7 @@ export default function CaseGraphPage() {
               <input
                 type="checkbox"
                 checked={showTrades}
+                aria-label="Filter observed trades"
                 onChange={(e) => setShowTrades(e.target.checked)}
                 className="accent-ink rounded-cell"
               />
@@ -231,6 +233,7 @@ export default function CaseGraphPage() {
               <input
                 type="checkbox"
                 checked={showInferred}
+                aria-label="Filter inferred links"
                 onChange={(e) => setShowInferred(e.target.checked)}
                 className="accent-uv rounded-cell"
               />
@@ -241,6 +244,7 @@ export default function CaseGraphPage() {
               <input
                 type="checkbox"
                 checked={showBrokers}
+                aria-label="Filter brokers and gateways"
                 onChange={(e) => setShowBrokers(e.target.checked)}
                 className="accent-ink rounded-cell"
               />
@@ -251,6 +255,7 @@ export default function CaseGraphPage() {
               <input
                 type="checkbox"
                 checked={showDevices}
+                aria-label="Filter devices and ASN"
                 onChange={(e) => setShowDevices(e.target.checked)}
                 className="accent-ink rounded-cell"
               />

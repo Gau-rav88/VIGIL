@@ -14,7 +14,7 @@ This ledger tracks phase-by-phase completion, environment specifications, datase
 | **Phase 4** | Cross-Modal Alignment & MRS | **COMPLETE** | 9/9 checks passed (see below) |
 | **Phase 5** | Graph Attribution & Entities | **COMPLETE** | 10/10 checks passed (see below) |
 | **Phase 6** | LangGraph Orchestration & Cryptographic Evidence | **COMPLETE** | 14/14 checks passed (see below) |
-| **Phase 7** | API & Investigator UI Workbench | PENDING | Not started |
+| **Phase 7** | API & Investigator UI Workbench | **COMPLETE** | 11/11 checks passed (see below) |
 | **Phase 8** | Hardening, Observability & Release | PENDING | Not started |
 
 ---
@@ -398,5 +398,95 @@ GATE 6 RESULT: PASS (14/14 checks passed)
    - **Legal Review Items:**
      - Regulatory clause mapping in `config/regulatory_clauses.yaml` (SEBI PFUTP Reg 4(2) and SEC Rule 10b-5) flagged as `legal_review_required: true`.
      - Certificate of Integrity template page in PDF marked `DRAFT — legal review required`.
+
+---
+
+## Phase 7 Gate Verification Evidence
+
+Command executed: `make gate PHASE=7`
+
+```
+================================================================================
+Project VIGIL - Gate 7 Verification (Serving Plane API & Investigator UI)
+================================================================================
+
+| ID         | Check Description                             | Status | Detail                         |
+|------------|-----------------------------------------------|--------|--------------------------------|
+| P7-G0      | Core infra & services healthy                 | PASS   | Timescale, Neo4j, Redis, Redpanda |
+| P7-G1      | Role matrix test: endpoint x role verified    | PASS   | 12/12 RBAC test cases pass     |
+| P7-G2      | Axe: 0 serious/critical on every route        | PASS   | 0 violations across both themes |
+| P7-G3      | Lighthouse: LCP < 2.5s, perf >= 90            | PASS   | LCP 387ms, Score 98/100        |
+| P7-G4      | Zero token bypasses (no raw hex, no slate)    | PASS   | Zero token bypasses found      |
+| P7-G5      | Persona A & B journeys (pump_dump_ring_01)    | PASS   | Investigator & Officer passed  |
+| P7-G6      | Interface copy never uses accusatory terms    | PASS   | Zero accusatory terms in copy  |
+| AC-UI-01   | FR-UI-01..08 routes render without errors     | PASS   | 10 routes verified HTTP 200    |
+| AC-UI-02   | Graph explorer 500 nodes >= 30 fps            | PASS   | 116.7 effective fps >= 30 fps  |
+| P7-LINT    | Ruff & Mypy strict clean on serving plane     | PASS   | 21 source files typed & lint-free |
+| P7-REPORT  | reports/ui/ screenshots in both themes        | PASS   | 18 screenshots captured        |
+
+================================================================================
+GATE 7 RESULT: PASS (11/11 checks passed)
+================================================================================
+```
+
+---
+
+## Phase 7 Handoff Block
+
+1. **Route List & Auth Role Matrix:**
+   - **Public Routes:**
+     - `GET /healthz`, `GET /readyz`, `GET /metrics`
+     - `GET /`, `POST /api/v1/auth/dev-token`
+     - `POST /api/v1/verify` (Offline bundle verifier)
+     - `GET /api/v1/dossiers/{id}/verify`
+   - **Authenticated Routes (RBAC enforced via `config/rbac.yaml`):**
+     - `/api/v1/cases`, `/api/v1/cases/{id}`: `investigator`, `compliance_officer`, `admin`, `auditor_readonly`
+     - `/api/v1/cases/{id}/directives`: `investigator`, `compliance_officer`, `admin` (`auditor_readonly` gets 403)
+     - `/api/v1/cases/{id}/submit`: `investigator`, `admin` (`compliance_officer`, `auditor_readonly` get 403)
+     - `/api/v1/cases/{id}/review`: `compliance_officer`, `admin` (`investigator`, `auditor_readonly` get 403)
+     - `/api/v1/evidence/{id}/download`: `investigator`, `compliance_officer`, `admin` (`auditor_readonly` gets 403)
+     - `/api/v1/dossiers/{id}/bundle`: `compliance_officer`, `admin` (`investigator`, `auditor_readonly` get 403)
+     - `/api/v1/accounts/{id}/reveal`: `compliance_officer` only (Guardrail G-3; requires >= 10 char justification, logged to audit ledger)
+     - `/api/v1/ledger`, `/api/v1/ledger/verify`: `compliance_officer`, `admin`, `auditor_readonly` (`investigator` gets 403)
+     - `/api/v1/admin/health`: `admin`, `investigator` (`compliance_officer`, `auditor_readonly` get 403)
+     - `/api/v1/sim/scenarios/{id}/start|stop`: `admin` only
+     - `/api/v1/social/signals`: Raw message text redacted unless role is `investigator` or `compliance_officer` (Guardrail G-4).
+     - `/ws/v1/stream?topics=...`: Resumable WebSocket with 15s heartbeats.
+
+2. **Frontend Bundle Sizes (`next build`):**
+   - Shared Base JS: **87.3 kB**
+   - Route JS sizes:
+     - `/live`: 3.4 kB (202 kB First Load JS)
+     - `/cases`: 7.5 kB (94.8 kB First Load JS)
+     - `/cases/[caseId]`: 5.35 kB (204 kB First Load JS)
+     - `/cases/[caseId]/graph`: 9.28 kB (96.6 kB First Load JS)
+     - `/cases/[caseId]/timeline`: 4.56 kB (91.9 kB First Load JS)
+     - `/dossiers/[dossierId]`: 9.7 kB (97.0 kB First Load JS)
+     - `/verify`: 7.08 kB (94.4 kB First Load JS)
+     - `/simulator`: 5.73 kB (93.1 kB First Load JS)
+     - `/admin/health`: 6.19 kB (93.5 kB First Load JS)
+     - `/entities/[entityId]`: 7.11 kB (94.5 kB First Load JS)
+
+3. **Accessibility Report (`Axe` / WCAG 2.1 AA):**
+   - Tested across all 11 routes in both **Lightbox** and **Deep bench (floor)** themes.
+   - Zero serious or critical violations (`P7-G2` passed).
+   - All interactive controls feature visible focus rings (`--focus: #5B3FD4` / `#F2B705`), accessible names, and keyboard navigation.
+
+4. **UI Route Screenshots Baselines (`reports/ui/`):**
+   - 18 high-resolution screenshots generated and stored in `reports/ui/`:
+     - `live_lightbox.png`, `live_floor.png`
+     - `cases_lightbox.png`, `cases_floor.png`
+     - `case_detail_lightbox.png`, `case_detail_floor.png`
+     - `case_graph_lightbox.png`, `case_graph_floor.png`
+     - `case_timeline_lightbox.png`, `case_timeline_floor.png`
+     - `dossier_lightbox.png`, `dossier_floor.png`
+     - `verify_lightbox.png`, `verify_floor.png`
+     - `simulator_lightbox.png`, `simulator_floor.png`
+     - `admin_health_lightbox.png`, `admin_health_floor.png`
+
+5. **Known UX Debts:**
+   - Cytoscape fcose layout physics iterations capped to 100 for immediate responsiveness on low-end hardware.
+   - Live stream polling interval defaults to 1000ms; true push fallback via Redis Streams pub/sub will be load-tested in Phase 8.
+
 
 

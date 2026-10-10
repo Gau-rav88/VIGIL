@@ -33,8 +33,16 @@ export function TopBar({ onSearch }: TopBarProps) {
     }
   };
 
-  // Keyboard shortcut '/' to focus search
+  // Keyboard shortcut '/' to focus search & URL theme param support
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("theme") === "floor") {
+        setTheme("floor");
+        document.documentElement.setAttribute("data-theme", "floor");
+      }
+    }
+
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "/" && document.activeElement?.tagName !== "INPUT" && document.activeElement?.tagName !== "TEXTAREA") {
         e.preventDefault();

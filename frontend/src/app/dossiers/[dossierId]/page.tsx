@@ -421,6 +421,7 @@ export default function DossierViewerPage() {
                     <input
                       type="radio"
                       name="decision"
+                      aria-label="Approve and sign"
                       checked={decision === "APPROVED"}
                       onChange={() => setDecision("APPROVED")}
                       className="accent-verified"
@@ -432,6 +433,7 @@ export default function DossierViewerPage() {
                     <input
                       type="radio"
                       name="decision"
+                      aria-label="Request rework"
                       checked={decision === "REWORK"}
                       onChange={() => setDecision("REWORK")}
                       className="accent-tag"
@@ -443,6 +445,7 @@ export default function DossierViewerPage() {
                     <input
                       type="radio"
                       name="decision"
+                      aria-label="Reject case"
                       checked={decision === "REJECTED"}
                       onChange={() => setDecision("REJECTED")}
                       className="accent-seal"
