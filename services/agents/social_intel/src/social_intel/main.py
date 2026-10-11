@@ -11,6 +11,7 @@ from vigil_common.logging import get_logger, setup_logging
 from vigil_common.models.anomaly import AnomalyEvent
 from vigil_common.models.social import SocialSignal
 from vigil_common.network import resolve_kafka_bootstrap
+from vigil_common.topics import Topics
 
 from social_intel.engine import SocialIntelEngine
 
@@ -34,7 +35,7 @@ class SocialIntelService:
         await self.producer.start()
 
         self.consumer = AIOKafkaConsumer(
-            "social.messages.raw",
+            Topics.SOCIAL_MESSAGES_RAW,
             bootstrap_servers=self.kafka_bootstrap,
             group_id="social_intel_workers",
             auto_offset_reset="latest",
@@ -70,7 +71,7 @@ class SocialIntelService:
         self.stats["signals"] += 1
         if self.producer:
             await self.producer.send(
-                topic="social.signals.norm",
+                topic=Topics.SOCIAL_SIGNALS_NORM,
                 value=json.dumps(sig.model_dump(mode="json")).encode("utf-8"),
                 key=sig.ticker.encode("utf-8"),
             )
@@ -86,7 +87,7 @@ class SocialIntelService:
         )
         if self.producer:
             await self.producer.send(
-                topic="anomaly.social",
+                topic=Topics.ANOMALY_SOCIAL,
                 value=json.dumps(anom.model_dump(mode="json")).encode("utf-8"),
                 key=anom.symbol.encode("utf-8"),
             )
@@ -95,7 +96,7 @@ class SocialIntelService:
         if self.producer:
             ticker = hype.get("ticker", "UNKNOWN")
             await self.producer.send(
-                topic="hype.scores.norm",
+                topic=Topics.HYPE_SCORES_NORM,
                 value=json.dumps(hype).encode("utf-8"),
                 key=ticker.encode("utf-8"),
             )

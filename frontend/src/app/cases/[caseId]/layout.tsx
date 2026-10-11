@@ -66,19 +66,17 @@ export default function CaseLayout({ children }: { children: React.ReactNode }) 
     <div className="flex flex-col flex-1 -m-6 min-h-screen bg-bg-base">
       {/* Pinned CaseBar */}
       <CaseBar
-        symbol={caseData?.symbol || "ZENITHSME"}
-        exchange={caseData?.exchange || "NSE SME"}
-        status={caseData?.status || "PENDING_REVIEW"}
-        confidence={caseData?.overall_confidence ?? 0.87}
-        completeness={caseData?.completeness ?? 1.0}
+        symbol={caseData?.symbol || "—"}
+        exchange={caseData?.exchange || "—"}
+        status={caseData?.status || "—"}
+        confidence={caseData?.overall_confidence ?? 0}
+        completeness={caseData?.completeness ?? 0}
         dossierVersion={1}
-        isVerified={true}
+        isVerified={false}
         windowStr={windowStr}
         flags={flags}
         onOpenDossier={() => {
-          if (latestDossierId) {
-            router.push(`/dossiers/${latestDossierId}`);
-          }
+          router.push(`/dossiers/${latestDossierId || caseId}`);
         }}
       />
 

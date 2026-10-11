@@ -15,7 +15,7 @@ const SCENARIOS = [
     name: "Syndicate Pump & Dump Ring",
     badge: "CRITICAL",
     badgeColor: "bg-seal-wash text-seal border-seal",
-    desc: "20 accounts + Telegram CTA bursts + circular wash trading on ZENITHSME.",
+    desc: "20 accounts + Telegram CTA bursts + circular wash trading on target SME equity.",
   },
   {
     id: "wash_ring_01",

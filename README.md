@@ -58,19 +58,25 @@
 
 ### Setup & Run
 ```bash
-# 1. Generate dev Ed25519 keys and start services
+# 1. Initialize environment configuration and dev keys
+make env
+# Note: .env defaults use the local synthetic profile with DEV ONLY credentials.
+# In production, provide strong 32+ char secrets.
+
+# 2. Build and start services (automatically generates dev keys if missing)
 make up
 
-# 2. Access Web UI & API
+# 3. Access Web UI, API, and Simulator
 # Dashboard:     http://localhost:3000
-# API & Docs:    http://localhost:8000/docs
+# API & Docs:    http://localhost:8001/docs (Host 8001 -> Container 8000)
+# Simulator:     http://localhost:8090
 # Redpanda:      http://localhost:8080
 # Neo4j:         http://localhost:7474
 # MinIO:         http://localhost:9001
 
-# 3. Trigger a simulation scenario
+# 4. Trigger a forensic simulation scenario (waits for ingest subscribers)
 make scenario ID=pump_dump_ring_01 SPEED=10 SEED=42
 
-# 4. Run automated end-to-end smoke acceptance
+# 5. Run automated end-to-end smoke acceptance
 make smoke
 ```

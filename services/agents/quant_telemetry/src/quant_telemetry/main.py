@@ -9,6 +9,7 @@ from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from vigil_common.logging import get_logger, setup_logging
 from vigil_common.models.anomaly import AnomalyEvent
 from vigil_common.network import resolve_kafka_bootstrap
+from vigil_common.topics import Topics
 
 from .engine import QuantTelemetryEngine
 
@@ -30,7 +31,7 @@ class QuantTelemetryService:
         self.producer = AIOKafkaProducer(bootstrap_servers=self.kafka_bootstrap, acks=1)
         await self.producer.start()
 
-        topics = ["market.trades.norm", "market.l2.norm", "market.l3.norm"]
+        topics = [Topics.MARKET_TRADES_NORM, Topics.MARKET_L2_NORM, Topics.MARKET_L3_NORM]
         self.consumer = AIOKafkaConsumer(
             *topics,
             bootstrap_servers=self.kafka_bootstrap,
@@ -47,9 +48,9 @@ class QuantTelemetryService:
             try:
                 data = json.loads(record.value)
                 event_type = "trade"
-                if record.topic == "market.l2.norm":
+                if record.topic == Topics.MARKET_L2_NORM:
                     event_type = "l2"
-                elif record.topic == "market.l3.norm":
+                elif record.topic == Topics.MARKET_L3_NORM:
                     event_type = "l3"
 
                 anomalies = self.engine.process_event(event_type, data)
@@ -68,7 +69,7 @@ class QuantTelemetryService:
         )
         if self.producer:
             await self.producer.send(
-                topic="anomaly.market",
+                topic=Topics.ANOMALY_MARKET,
                 value=json.dumps(anomaly.model_dump(mode="json")).encode("utf-8"),
                 key=anomaly.symbol.encode("utf-8"),
             )

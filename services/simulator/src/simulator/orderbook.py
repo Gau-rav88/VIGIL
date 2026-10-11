@@ -28,9 +28,15 @@ class RestingOrder:
 
 
 class OrderBook:
-    def __init__(self, symbol: str, exchange: Literal["NSE", "BSE", "NASDAQ", "NYSE", "SYNTH"] = "SYNTH") -> None:
+    def __init__(
+        self,
+        symbol: str,
+        exchange: Literal["NSE", "BSE", "NASDAQ", "NYSE", "SYNTH"] = "SYNTH",
+        run_id: str = "",
+    ) -> None:
         self.symbol = symbol
         self.exchange = exchange
+        self.run_id = run_id
         self.bids: dict[float, list[RestingOrder]] = {}  # price -> orders
         self.asks: dict[float, list[RestingOrder]] = {}  # price -> orders
         self.orders_by_id: dict[str, RestingOrder] = {}
@@ -43,10 +49,13 @@ class OrderBook:
 
     def next_trade_id(self) -> str:
         self.trade_seq += 1
+        if self.run_id:
+            return f"T-{self.symbol}-{self.run_id}-{self.trade_seq:09d}"
         return f"T-{self.symbol}-{self.trade_seq:09d}"
 
     def make_event_id(self, seq: int, tag: str) -> str:
-        return str(uuid.uuid5(uuid.NAMESPACE_OID, f"{self.symbol}:{seq}:{tag}"))
+        key = f"{self.symbol}:{seq}:{tag}:{self.run_id}" if self.run_id else f"{self.symbol}:{seq}:{tag}"
+        return str(uuid.uuid5(uuid.NAMESPACE_OID, key))
 
     def best_bid(self) -> float | None:
         active_bids = [p for p, orders in self.bids.items() if orders]

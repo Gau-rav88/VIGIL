@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any, Callable, Coroutine
 
@@ -8,6 +9,8 @@ from fastapi import Request
 from vigil_common.config import get_settings
 
 from api.errors import ProblemException
+
+logger = logging.getLogger("api.auth")
 
 
 @dataclass
@@ -34,18 +37,25 @@ async def get_current_user(request: Request) -> User:
             token,
             settings.JWT_HS256_SECRET,
             algorithms=["HS256"],
-            options={"verify_exp": False},
+            options={"verify_exp": True, "require": ["sub", "role"]},
         )
-        sub = str(payload.get("sub", "anon"))
-        role = str(payload.get("role", "auditor_readonly"))
+        sub = str(payload.get("sub"))
+        role = str(payload.get("role"))
         return User(sub=sub, role=role)
+    except jwt.ExpiredSignatureError as exc:
+        raise ProblemException(
+            status_code=401,
+            title="Unauthorized",
+            detail="JWT token has expired",
+            type_uri="https://api.vigil.dev/errors/unauthorized",
+        ) from exc
     except jwt.PyJWTError as exc:
         raise ProblemException(
             status_code=401,
             title="Unauthorized",
-            detail=f"Invalid or expired JWT token: {exc}",
+            detail=f"Invalid JWT token: {exc}",
             type_uri="https://api.vigil.dev/errors/unauthorized",
-        )
+        ) from exc
 
 
 async def optional_user(request: Request) -> User | None:

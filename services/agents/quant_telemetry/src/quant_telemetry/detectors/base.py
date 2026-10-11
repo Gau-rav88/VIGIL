@@ -48,7 +48,7 @@ class Detector(abc.ABC):
 
     def get_tier(self, symbol: str) -> str:
         s = symbol.upper()
-        if "SME" in s or s in ("ZENITHSME", "MICROTECH", "ALPHASME", "SOLARIS", "NOVAPHARMA"):
+        if "SME" in s or s in ("MICROTECH", "ALPHASME", "SOLARIS", "NOVAPHARMA"):
             return "micro"
         if s in ("ACMESYSTEMS", "PRISMIND", "VORTEXSME", "STELLARSME"):
             return "mid"

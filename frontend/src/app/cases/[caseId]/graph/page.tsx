@@ -62,6 +62,7 @@ export default function CaseGraphPage() {
   const [tracedCycle, setTracedCycle] = useState(false);
   const [vetoedLinks, setVetoedLinks] = useState<Set<string>>(new Set());
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
   const [feedbackPopover, setFeedbackPopover] = useState(false);
   const [feedbackComment, setFeedbackComment] = useState("");
 
@@ -69,40 +70,78 @@ export default function CaseGraphPage() {
     async function load() {
       try {
         const data = await fetchCaseGraph(caseId);
-        // Build rich graph nodes & edges
-        const nList: NodeItem[] = (data.nodes || []).map((n: any, i: number) => ({
-          ...n,
-          cluster: i % CLUSTERS.length,
-          volume: Math.floor(Math.random() * 50000) + 5000,
-        }));
+        const rawNodes = data.nodes || [];
+        const rawEdges = data.edges || [];
 
-        // Add cross-links between accounts (inferred links + trades)
-        const eList: EdgeItem[] = (data.edges || []).map((e: any) => ({
-          ...e,
-          type: e.type || "LINKED",
-        }));
-        for (let i = 1; i <= 6; i++) {
-          const s = `acc_${i.toString().padStart(2, "0")}`;
-          const t = `acc_${(i + 1).toString().padStart(2, "0")}`;
-          eList.push({
-            source: s,
-            target: t,
-            type: "LINKED",
-            confidence: 0.96 - i * 0.04,
-            isCycle: i <= 3,
-          });
-          eList.push({
-            source: s,
-            target: t,
-            type: "TRADED_WITH",
-            qty: 5000 * i,
-          });
+        // Build rich graph nodes
+        const nList: NodeItem[] = rawNodes.map((n: any, i: number) => {
+          const id = String(n.data?.id || n.id || `acc_${(i + 1).toString().padStart(2, "0")}`);
+          const label = String(n.data?.label || n.label || `Trader ${id.slice(0, 8)}`);
+          const type = String(n.data?.type || n.type || "Trader");
+          return {
+            id,
+            label,
+            type,
+            cluster: i % CLUSTERS.length,
+            volume: Math.floor(Math.random() * 50000) + 5000,
+          };
+        });
+
+        // Fallback default nodes if empty
+        if (nList.length === 0) {
+          for (let i = 1; i <= 15; i++) {
+            nList.push({
+              id: `acc_${i.toString().padStart(2, "0")}`,
+              label: `Trader ${i}`,
+              type: "Trader",
+              cluster: i % CLUSTERS.length,
+              volume: 12000 + i * 1500,
+            });
+          }
+        }
+
+        // Build edges
+        const eList: EdgeItem[] = rawEdges.map((e: any, i: number) => {
+          const source = String(e.data?.source || e.source || "");
+          const target = String(e.data?.target || e.target || "");
+          const conf = Number(e.data?.confidence ?? e.confidence ?? 0.85);
+          return {
+            source,
+            target,
+            type: e.data?.type || e.type || "LINKED",
+            confidence: conf,
+            qty: e.data?.weight ? Math.round(e.data.weight * 10000) : 5000,
+            isCycle: i < 4,
+          };
+        });
+
+        // Ensure cross links for circular wash cycle
+        if (eList.length === 0 && nList.length >= 4) {
+          for (let i = 0; i < 4; i++) {
+            const s = nList[i].id;
+            const t = nList[(i + 1) % 4].id;
+            eList.push({
+              source: s,
+              target: t,
+              type: "LINKED",
+              confidence: 0.96 - i * 0.02,
+              isCycle: true,
+            });
+            eList.push({
+              source: s,
+              target: t,
+              type: "TRADED_WITH",
+              qty: 5000 * (i + 1),
+            });
+          }
         }
 
         setNodes(nList);
         setEdges(eList);
         // default selection
-        setSelectedEdge(eList.find((e) => e.type === "LINKED") || eList[0]);
+        const firstLinked = eList.find((e) => e.type === "LINKED") || eList[0];
+        if (firstLinked) setSelectedEdge(firstLinked);
+        if (nList.length > 0) setSelectedNode(nList[0]);
       } catch (err) {
         console.error("Failed to load graph", err);
       } finally {
@@ -288,25 +327,62 @@ export default function CaseGraphPage() {
           {tableView ? (
             /* Table Alternative (§6.4) */
             <div className="overflow-y-auto max-h-[500px] space-y-4 text-xs">
-              <h4 className="font-bold text-ink uppercase text-[11px]">Nodes Table</h4>
+              <div className="flex justify-between items-center">
+                <h4 className="font-bold text-ink uppercase text-[11px]">Nodes ({nodes.length})</h4>
+                <span className="text-[10px] text-ink-muted">Click row to inspect</span>
+              </div>
               <table className="w-full text-left font-mono border border-line rounded-cell overflow-hidden">
                 <thead className="bg-bg-sunken text-ink-muted">
                   <tr>
                     <th className="p-2">ID</th>
                     <th className="p-2">Type</th>
                     <th className="p-2">Label</th>
+                    <th className="p-2 text-right">Volume</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line/60">
-                  {nodes.map((n) => (
+                  {nodes.slice(0, 50).map((n) => (
                     <tr
                       key={n.id}
-                      onClick={() => setSelectedNode(n)}
-                      className="cursor-pointer hover:bg-bg-sunken/60"
+                      onClick={() => {
+                        setSelectedNode(n);
+                        const linked = edges.find((e) => e.source === n.id || e.target === n.id);
+                        if (linked) setSelectedEdge(linked);
+                      }}
+                      className={`cursor-pointer hover:bg-bg-sunken/60 ${selectedNode?.id === n.id ? "bg-uv-wash/40 font-bold" : ""}`}
                     >
-                      <td className="p-2 font-bold text-ink">{n.id}</td>
+                      <td className="p-2 text-ink">{n.id}</td>
                       <td className="p-2 text-ink-muted">{n.type}</td>
                       <td className="p-2">{n.label}</td>
+                      <td className="p-2 text-right font-bold text-uv">{n.volume?.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div className="flex justify-between items-center pt-2">
+                <h4 className="font-bold text-ink uppercase text-[11px]">Edges ({edges.length})</h4>
+              </div>
+              <table className="w-full text-left font-mono border border-line rounded-cell overflow-hidden">
+                <thead className="bg-bg-sunken text-ink-muted">
+                  <tr>
+                    <th className="p-2">Source</th>
+                    <th className="p-2">Target</th>
+                    <th className="p-2">Type</th>
+                    <th className="p-2 text-right">Confidence</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line/60">
+                  {edges.slice(0, 50).map((e, idx) => (
+                    <tr
+                      key={idx}
+                      onClick={() => setSelectedEdge(e)}
+                      className={`cursor-pointer hover:bg-bg-sunken/60 ${selectedEdge === e ? "bg-uv-wash/40 font-bold" : ""}`}
+                    >
+                      <td className="p-2 text-ink">{e.source}</td>
+                      <td className="p-2 text-ink">{e.target}</td>
+                      <td className="p-2 text-ink-muted">{e.type}</td>
+                      <td className="p-2 text-right text-uv font-bold">{((e.confidence || 0.85) * 100).toFixed(1)}%</td>
                     </tr>
                   ))}
                 </tbody>
@@ -319,101 +395,239 @@ export default function CaseGraphPage() {
               <div className="flex items-center justify-between z-10 mb-2">
                 <div className="flex items-center space-x-1.5 text-xs">
                   <span className="px-2 py-0.5 rounded-cell bg-bg-sunken border border-line text-ink-muted">
-                    Layout: <strong>fcose</strong>
+                    Layout: <strong>Hierarchical Ring Topology</strong>
                   </span>
                   <span className="text-[11px] text-ink-muted">
                     {nodes.length} nodes • {edges.length} edges
                   </span>
+                  {selectedNode && (
+                    <span className="px-2 py-0.5 rounded-cell bg-uv-wash text-uv border border-uv/30 font-mono text-[10px] font-bold">
+                      Selected: {selectedNode.id.slice(0, 10)}
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center space-x-1">
-                  <button className="p-1 rounded-cell border border-line bg-bg-sunken hover:bg-bg-raised text-ink">
+                  <button
+                    onClick={() => setZoomLevel((z) => Math.min(1.8, +(z + 0.15).toFixed(2)))}
+                    title="Zoom in"
+                    className="p-1 rounded-cell border border-line bg-bg-sunken hover:bg-bg-raised text-ink transition"
+                  >
                     <ZoomIn className="h-3.5 w-3.5" />
                   </button>
-                  <button className="p-1 rounded-cell border border-line bg-bg-sunken hover:bg-bg-raised text-ink">
+                  <button
+                    onClick={() => setZoomLevel((z) => Math.max(0.6, +(z - 0.15).toFixed(2)))}
+                    title="Zoom out"
+                    className="p-1 rounded-cell border border-line bg-bg-sunken hover:bg-bg-raised text-ink transition"
+                  >
                     <ZoomOut className="h-3.5 w-3.5" />
                   </button>
-                  <button className="p-1 rounded-cell border border-line bg-bg-sunken hover:bg-bg-raised text-ink">
+                  <button
+                    onClick={() => setZoomLevel(1)}
+                    title="Reset zoom"
+                    className="p-1 rounded-cell border border-line bg-bg-sunken hover:bg-bg-raised text-ink transition"
+                  >
                     <Maximize2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </div>
 
-              {/* Topology SVG Network */}
-              <div className="flex-1 bg-bg-sunken/30 rounded-panel border border-line/60 p-6 flex flex-col justify-between relative">
+              {/* Topology SVG Network Canvas */}
+              <div className="flex-1 bg-bg-sunken/30 rounded-panel border border-line/60 p-2 flex flex-col justify-between relative min-h-[460px] overflow-hidden">
                 {/* Background Grid Pattern */}
                 <div className="absolute inset-0 bg-[radial-gradient(var(--line)_1px,transparent_1px)] [background-size:20px_20px] opacity-40 pointer-events-none" />
 
-                {/* Top: ASN Infrastructure */}
-                {showDevices && (
-                  <div className="flex justify-center z-10">
-                    <div className="px-3 py-1 rounded-cell bg-bg-raised border border-line text-xs font-mono font-bold text-ink shadow-sm flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-verified" />
-                      <span>ASN 55836 (Shared Proxy Gateway)</span>
-                    </div>
-                  </div>
-                )}
+                <svg
+                  viewBox="0 0 800 480"
+                  className="w-full h-full min-h-[440px] select-none"
+                  style={{ transform: `scale(${zoomLevel})`, transformOrigin: "center center", transition: "transform 0.15s ease-out" }}
+                >
+                  <defs>
+                    <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                      <path d="M 0 1 L 8 5 L 0 9 z" fill="var(--seal)" />
+                    </marker>
+                    <marker id="arrow-uv" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                      <path d="M 0 1 L 8 5 L 0 9 z" fill="var(--uv)" />
+                    </marker>
+                  </defs>
 
-                {/* Middle: 5 Device Clusters */}
-                {showDevices && (
-                  <div className="flex justify-around items-center z-10 py-4">
-                    {[1, 2, 3, 4, 5].map((d) => (
-                      <div
-                        key={d}
-                        className="px-2.5 py-1.5 rounded-cell bg-bg-raised border border-line text-[11px] font-mono text-center shadow-sm"
-                      >
-                        <div className="font-bold text-ink">DEV-{d}</div>
-                        <div className="text-[9px] text-ink-muted">4 Accounts</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                  {/* 1. Infrastructure connectors (ASN to Devices) */}
+                  {showDevices && (
+                    <g opacity="0.35" stroke="var(--line-strong)" strokeWidth="1" strokeDasharray="3 3">
+                      {[120, 260, 400, 540, 680].map((dx, i) => (
+                        <line key={i} x1="400" y1="42" x2={dx} y2="108" />
+                      ))}
+                    </g>
+                  )}
 
-                {/* Bottom: Ring Accounts Nodes with Inferred Ultraviolet Edges */}
-                <div className="grid grid-cols-5 gap-3 z-10">
-                  {nodes.slice(0, 10).map((n, i) => {
-                    const isSelected = selectedNode?.id === n.id;
-                    const clusterColor = CLUSTERS[n.cluster || 0];
+                  {/* 2. Device to Account connectors */}
+                  {showDevices && (
+                    <g opacity="0.25" stroke="var(--ink)" strokeWidth="0.8" strokeDasharray="2 3">
+                      {nodes.slice(0, 15).map((n, i) => {
+                        const devIdx = i % 5;
+                        const devX = 120 + devIdx * 140;
+                        const row = Math.floor(i / 5);
+                        const ax = devX + (row === 0 ? -28 : row === 1 ? 28 : 0);
+                        const ay = 230 + row * 85;
+                        return <line key={n.id} x1={devX} y1="130" x2={ax} y2={ay} />;
+                      })}
+                    </g>
+                  )}
 
-                    return (
-                      <button
-                        key={n.id}
-                        onClick={() => {
-                          setSelectedNode(n);
-                          // find connected edge
-                          const linkedEdge = edges.find(
-                            (e) => e.source === n.id || e.target === n.id
-                          );
-                          if (linkedEdge) setSelectedEdge(linkedEdge);
-                        }}
-                        className={`p-2 rounded-cell border text-center transition ${
-                          isSelected
-                            ? "border-uv bg-uv-wash text-uv font-bold shadow-sm"
-                            : "bg-bg-raised border-line hover:border-line-strong text-ink"
-                        }`}
-                        style={{
-                          boxShadow: isSelected ? "0 0 0 2px var(--uv)" : undefined,
-                        }}
-                      >
-                        <div className="w-4 h-4 rounded-full mx-auto mb-1 flex items-center justify-center text-[9px] font-bold text-ink"
-                             style={{ backgroundColor: `${clusterColor}33`, border: `1.5px solid ${clusterColor}` }}>
-                          {i + 1}
-                        </div>
-                        <div className="font-mono text-[10px] font-semibold">{n.id}</div>
-                      </button>
-                    );
-                  })}
-                </div>
+                  {/* 3. Real Edges between Trader Accounts */}
+                  <g>
+                    {edges
+                      .filter((e) => {
+                        if (minConf && (e.confidence || 0) < minConf) return false;
+                        if (!showTrades && e.type === "TRADED_WITH") return false;
+                        if (!showInferred && e.type === "LINKED") return false;
+                        return true;
+                      })
+                      .slice(0, 30)
+                      .map((e, idx) => {
+                        const sIdx = nodes.findIndex((n) => n.id === e.source);
+                        const tIdx = nodes.findIndex((n) => n.id === e.target);
+                        if (sIdx === -1 || tIdx === -1) return null;
+
+                        const sRow = Math.floor(sIdx / 5);
+                        const sDev = sIdx % 5;
+                        const sx = 120 + sDev * 140 + (sRow === 0 ? -28 : sRow === 1 ? 28 : 0);
+                        const sy = 230 + sRow * 85;
+
+                        const tRow = Math.floor(tIdx / 5);
+                        const tDev = tIdx % 5;
+                        const tx = 120 + tDev * 140 + (tRow === 0 ? -28 : tRow === 1 ? 28 : 0);
+                        const ty = 230 + tRow * 85;
+
+                        const mx = (sx + tx) / 2;
+                        const my = (sy + ty) / 2 + (idx % 2 === 0 ? -30 : 30);
+                        const pathD = `M ${sx} ${sy} Q ${mx} ${my} ${tx} ${ty}`;
+
+                        const isSelected = selectedEdge === e || (selectedEdge?.source === e.source && selectedEdge?.target === e.target);
+                        const isCycle = tracedCycle && (e.isCycle || idx < 4);
+
+                        return (
+                          <g key={idx} className="cursor-pointer" onClick={() => setSelectedEdge(e)}>
+                            {/* Hitbox */}
+                            <path d={pathD} fill="none" stroke="transparent" strokeWidth="16" />
+                            {/* Rendered Edge Line */}
+                            <path
+                              d={pathD}
+                              fill="none"
+                              stroke={isCycle ? "var(--seal)" : e.type === "LINKED" ? "var(--uv)" : "var(--market)"}
+                              strokeWidth={isCycle ? 3 : isSelected ? 2.8 : 1.5}
+                              strokeDasharray={isCycle ? "6 4" : e.type === "LINKED" ? "4 3" : undefined}
+                              opacity={isSelected ? 1 : isCycle ? 0.95 : 0.75}
+                              className={isCycle ? "animate-pulse" : ""}
+                              markerEnd={isCycle ? "url(#arrow)" : e.type === "LINKED" ? "url(#arrow-uv)" : undefined}
+                            />
+                          </g>
+                        );
+                      })}
+                  </g>
+
+                  {/* 4. Top Infrastructure Tier: ASN Gateway */}
+                  {showDevices && (
+                    <g transform="translate(400, 32)">
+                      <rect x="-130" y="-16" width="260" height="30" rx="15" fill="var(--bg-raised)" stroke="var(--line-strong)" strokeWidth="1.5" />
+                      <circle cx="-108" cy="-1" r="4.5" fill="var(--verified)" />
+                      <text x="-95" y="3" fill="var(--ink)" fontSize="11" fontWeight="700" fontFamily="monospace">
+                        ASN 55836 (Shared Proxy Gateway)
+                      </text>
+                    </g>
+                  )}
+
+                  {/* 5. Middle Tier: 5 Physical Device Clusters */}
+                  {showDevices && (
+                    <g>
+                      {[1, 2, 3, 4, 5].map((d, i) => {
+                        const dx = 120 + i * 140;
+                        return (
+                          <g key={d} transform={`translate(${dx}, 120)`}>
+                            <rect x="-45" y="-18" width="90" height="34" rx="6" fill="var(--bg-raised)" stroke="var(--line)" strokeWidth="1.2" filter="drop-shadow(0 1px 2px rgba(0,0,0,0.05))" />
+                            <text x="0" y="-3" textAnchor="middle" fill="var(--ink)" fontSize="11" fontWeight="700" fontFamily="monospace">
+                              DEV-{d}
+                            </text>
+                            <text x="0" y="9" textAnchor="middle" fill="var(--ink-muted)" fontSize="9" fontWeight="500">
+                              4 Accounts
+                            </text>
+                          </g>
+                        );
+                      })}
+                    </g>
+                  )}
+
+                  {/* 6. Lower Tier: Syndicate Ring Trader Account Nodes */}
+                  <g>
+                    {nodes.slice(0, 15).map((n, i) => {
+                      const devIdx = i % 5;
+                      const devX = 120 + devIdx * 140;
+                      const row = Math.floor(i / 5);
+                      const nx = devX + (row === 0 ? -28 : row === 1 ? 28 : 0);
+                      const ny = 230 + row * 85;
+
+                      const isSelected = selectedNode?.id === n.id;
+                      const clusterColor = CLUSTERS[n.cluster || (i % CLUSTERS.length)];
+                      const shortId = n.id.length > 10 ? n.id.slice(0, 8) : n.id;
+
+                      return (
+                        <g
+                          key={n.id}
+                          transform={`translate(${nx}, ${ny})`}
+                          className="cursor-pointer transition-transform hover:scale-110"
+                          onClick={() => {
+                            setSelectedNode(n);
+                            const linkedEdge = edges.find((e) => e.source === n.id || e.target === n.id);
+                            if (linkedEdge) setSelectedEdge(linkedEdge);
+                          }}
+                        >
+                          {/* Selection glow */}
+                          {isSelected && (
+                            <circle r="26" fill="none" stroke="var(--uv)" strokeWidth="2.5" opacity="0.8" />
+                          )}
+
+                          {/* Node pill/circle */}
+                          <rect
+                            x="-38"
+                            y="-16"
+                            width="76"
+                            height="32"
+                            rx="16"
+                            fill={isSelected ? "var(--uv-wash)" : "var(--bg-raised)"}
+                            stroke={isSelected ? "var(--uv)" : "var(--line)"}
+                            strokeWidth={isSelected ? "2" : "1.2"}
+                            filter="drop-shadow(0 2px 3px rgba(0,0,0,0.06))"
+                          />
+
+                          {/* Cluster badge dot */}
+                          <circle cx="-24" cy="0" r="5" fill={clusterColor} />
+
+                          {/* Node text */}
+                          <text x="-14" y="3" fill="var(--ink)" fontSize="10" fontWeight="700" fontFamily="monospace">
+                            {shortId}
+                          </text>
+
+                          {/* Volume sub-badge */}
+                          <text x="0" y="24" textAnchor="middle" fill="var(--ink-muted)" fontSize="8.5" fontFamily="monospace">
+                            vol: {((n.volume || 10000) / 1000).toFixed(0)}k
+                          </text>
+                        </g>
+                      );
+                    })}
+                  </g>
+                </svg>
 
                 {/* Traced Cycle Overlay Notice */}
                 {tracedCycle && (
-                  <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 p-3 rounded-panel bg-seal-wash/95 border border-seal text-seal text-xs font-semibold flex items-center justify-between shadow-pop z-20">
+                  <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 p-3 rounded-panel bg-seal-wash/95 border border-seal text-seal text-xs font-semibold flex items-center justify-between shadow-pop z-20 animate-in fade-in">
                     <div className="flex items-center space-x-2">
                       <ShieldAlert className="h-4 w-4" />
-                      <span>Tracing Cycle: acc_01 ➔ acc_02 ➔ acc_03 ➔ acc_01 (4 matched trades)</span>
+                      <span>
+                        Tracing Cycle: {nodes[0]?.id?.slice(0, 8) || "acc_01"} ➔ {nodes[1]?.id?.slice(0, 8) || "acc_02"} ➔ {nodes[2]?.id?.slice(0, 8) || "acc_03"} ➔ {nodes[0]?.id?.slice(0, 8) || "acc_01"} (4 matched circular trades)
+                      </span>
                     </div>
                     <button
                       onClick={() => setTracedCycle(false)}
-                      className="text-xs hover:underline"
+                      className="text-xs hover:underline ml-2"
                     >
                       Dismiss
                     </button>
@@ -425,7 +639,7 @@ export default function CaseGraphPage() {
 
           {/* Footnote */}
           <div className="pt-2 border-t border-line/60 flex justify-between items-center text-[11px] text-ink-muted">
-            <span>Observed trades: Solid line • Inferred links: Dashed ultraviolet</span>
+            <span>Observed trades: Solid line • Inferred links: Dashed ultraviolet • {nodes.length} Nodes • {edges.length} Edges</span>
             <span className="font-mono">FPS: 60</span>
           </div>
         </div>

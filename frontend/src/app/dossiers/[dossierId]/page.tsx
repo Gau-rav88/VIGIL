@@ -112,8 +112,8 @@ export default function DossierViewerPage() {
     );
   }
 
-  const caseId = dossier?.case_id || "case_01";
-  const symbol = dossier?.symbol || "ZENITHSME";
+  const caseId = dossier?.case_id || "—";
+  const symbol = dossier?.symbol || "—";
   const version = dossier?.version || 1;
 
   return (
@@ -212,7 +212,7 @@ export default function DossierViewerPage() {
           <section id="timeline" className="space-y-3">
             <h2 className="text-lg font-bold text-ink">2. Chronology of Events</h2>
             <p className="text-sm text-ink leading-relaxed font-serif">
-              The sequence initiated at 04:20:12 UTC with broadcast buy calls in the channel 'Alpha Callers'.
+              The sequence initiated at 04:20:12 UTC with broadcast buy calls in the channel &apos;Alpha Callers&apos;.
               At 04:20:54 UTC, the first aggressive limit and market orders were routed to the NSE SME order book.
               Peak coordinated trading was sustained until 04:35:10 UTC, followed by staged selling to retail participants.{" "}
               <EvidenceTag n={4} />

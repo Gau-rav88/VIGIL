@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
+from vigil_common.symbols import normalize_symbol
 
 MentionType = Literal["CASHTAG", "SYMBOL", "COMPANY_NAME", "ALIAS"]
 
@@ -75,27 +76,32 @@ class TickerExtractor:
         # 1. Match Cashtags ($SYMBOL) - highest confidence
         cashtags = re.findall(r"\$([A-Z0-9&._-]{1,24})\b", text)
         for tag in cashtags:
-            sym_candidate = tag.upper()
-            resolved = self.alias_to_symbol.get(sym_candidate, (sym_candidate, "CASHTAG", 0.95))
-            results[resolved[0]] = (0.95, "CASHTAG")
+            norm = normalize_symbol(tag, has_cashtag=True, has_cue=has_cue)
+            if norm:
+                results[norm] = (0.95, "CASHTAG")
+            else:
+                sym_candidate = tag.upper()
+                resolved = self.alias_to_symbol.get(sym_candidate, (sym_candidate, "CASHTAG", 0.95))
+                results[resolved[0]] = (0.95, "CASHTAG")
 
         # 2. Match Company Names (case-insensitive substring)
         for alias, (symbol, mtype, conf) in self.alias_to_symbol.items():
             if mtype == "COMPANY_NAME":
                 pattern = r"\b" + re.escape(alias) + r"\b"
                 if re.search(pattern, text_upper):
-                    if symbol not in results or conf > results[symbol][0]:
-                        results[symbol] = (conf, "COMPANY_NAME")
+                    norm = normalize_symbol(symbol, has_cue=has_cue) or symbol
+                    if norm not in results or conf > results[norm][0]:
+                        results[norm] = (conf, "COMPANY_NAME")
 
         # 3. Match Exact Symbols and Aliases with Ambiguity Rules
         for alias, (symbol, mtype, conf) in self.alias_to_symbol.items():
             if mtype in ("SYMBOL", "ALIAS"):
                 pattern = r"\b" + re.escape(alias) + r"\b"
                 if re.search(pattern, text_upper):
-                    if alias in AMBIGUOUS_TOKENS and not has_cue:
-                        # Ambiguous token without financial cue is rejected or capped
+                    norm = normalize_symbol(alias, has_cue=has_cue)
+                    if not norm:
                         continue
-                    if symbol not in results or conf > results[symbol][0]:
-                        results[symbol] = (conf, mtype)
+                    if norm not in results or conf > results[norm][0]:
+                        results[norm] = (conf, mtype)
 
         return [(sym, conf, mtype) for sym, (conf, mtype) in results.items()]

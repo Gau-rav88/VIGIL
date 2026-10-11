@@ -27,7 +27,7 @@ class DatasetTradeAdapter:
         chars = "".join(self.rng.choice(list(alphabet), size=18))
         return f"acc_{chars}"
 
-    def to_trade_tick(self, record: Dict[str, Any], symbol: str = "ZENITHSME") -> TradeTick:
+    def to_trade_tick(self, record: Dict[str, Any], symbol: str = "TARGET") -> TradeTick:
         self.seq += 1
 
         # Extract timestamps
@@ -99,12 +99,12 @@ class FileReplayAdapter:
         self.data_dir = data_dir
         self.adapter = DatasetTradeAdapter()
 
-    def iter_trade_ticks(self, symbol: str = "ZENITHSME") -> Iterator[TradeTick]:
+    def iter_trade_ticks(self, symbol: str = "TARGET") -> Iterator[TradeTick]:
         records = open_dataset(self.dataset_name, data_dir=self.data_dir)
         for rec in records:
             yield self.adapter.to_trade_tick(rec, symbol=symbol)
 
-    async def aiter_trade_ticks(self, symbol: str = "ZENITHSME", delay_ms: float = 1.0) -> AsyncIterator[TradeTick]:
+    async def aiter_trade_ticks(self, symbol: str = "TARGET", delay_ms: float = 1.0) -> AsyncIterator[TradeTick]:
         delay_s = max(0.0001, (delay_ms / 1000.0) / self.speed)
         for tick in self.iter_trade_ticks(symbol=symbol):
             yield tick

@@ -24,7 +24,7 @@ async def test_llm_timeout_bound_enforced() -> None:
         return []
 
     with (
-        patch.dict("os.environ", {"ANTHROPIC_API_KEY": "sk-ant-test-key-mock"}),
+        patch.dict("os.environ", {"ANTHROPIC_API_KEY": "sk-ant-test-key-mock", "LLM_PROVIDER": "anthropic"}),
         patch.object(classifier, "_call_llm_api", side_effect=slow_api_call),
     ):
         start = time.perf_counter()
@@ -68,7 +68,7 @@ async def test_llm_concurrency_bound_enforced() -> None:
         return [classifier.classify_fallback(m.get("text", "")) for m in messages]
 
     with (
-        patch.dict("os.environ", {"ANTHROPIC_API_KEY": "sk-ant-test-key-mock"}),
+        patch.dict("os.environ", {"ANTHROPIC_API_KEY": "sk-ant-test-key-mock", "LLM_PROVIDER": "anthropic"}),
         patch.object(classifier, "_call_llm_api", side_effect=tracked_api_call),
     ):
         # Dispatch 16 concurrent requests

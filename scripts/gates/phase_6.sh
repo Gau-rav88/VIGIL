@@ -201,6 +201,13 @@ else
   record_check "P6-LINT" "Ruff and Mypy strict clean" "FAIL" "Lint or typing issues detected"
 fi
 
+# P6-NO-FAB: Static scan for no fabricated or canned mock data
+if uv run python scripts/check_no_fabricated.py >/dev/null 2>&1; then
+  record_check "P6-NO-FAB" "Zero fabricated/canned data in services" "PASS" "Static scanner verified 0 violations"
+else
+  record_check "P6-NO-FAB" "Zero fabricated/canned data in services" "FAIL" "Fabricated or canned data detected"
+fi
+
 # P6-REPORT: reports/sample_bundle/ verified
 if [[ -f "reports/sample_bundle/bundle.zip" && -f "reports/sample_bundle/dossier.pdf" ]]; then
   record_check "P6-REPORT" "reports/sample_bundle/ verified & non-empty" "PASS" "Signed sample bundle generated"

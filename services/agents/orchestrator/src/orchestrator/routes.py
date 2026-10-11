@@ -19,8 +19,11 @@ def after_enrich(state: CaseState) -> Literal["align", "failed"]:
 
 
 def after_align(state: CaseState) -> Literal["attribute", "watchlist"]:
+    flags = state.get("flags") or []
+    if any(f in ("CIRCULAR_RING", "FINGERPRINT_CLUSTER", "COORDINATED_VOLUME_LOOP", "PUMP_AND_DUMP", "RING_TRIGGERED") for f in flags):
+        return "attribute"
     align = state.get("alignment")
-    if not align:
+    if not align or align.get("status") == "NOT_RUN":
         return "attribute"  # proceed with fallback
     p_val = align.get("p_value", 0.0)
     peak = align.get("xcorr_peak", 0.0)

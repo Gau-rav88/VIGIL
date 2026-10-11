@@ -2,16 +2,28 @@
 
 import React, { useState, useEffect } from "react";
 import { ConnectionStatus } from "./ConnectionStatus";
-import { Search, Globe, Moon, Sun, Sliders } from "lucide-react";
+import { Search, Globe, Moon, Sun, Sliders, UserCheck } from "lucide-react";
+import { getRole, setRole, Role } from "@/lib/auth";
 
 interface TopBarProps {
   onSearch?: (query: string) => void;
 }
 
 export function TopBar({ onSearch }: TopBarProps) {
+  const [role, setUserRole] = useState<Role>("compliance_officer");
   const [tz, setTz] = useState<"IST" | "UTC">("IST");
   const [theme, setTheme] = useState<"standard" | "floor">("standard");
   const [density, setDensity] = useState<"compact" | "comfortable">("compact");
+
+  useEffect(() => {
+    setUserRole(getRole());
+  }, []);
+
+  const handleRoleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const nextRole = e.target.value as Role;
+    setUserRole(nextRole);
+    await setRole(nextRole);
+  };
 
   const toggleTheme = () => {
     const next = theme === "standard" ? "floor" : "standard";
@@ -71,7 +83,20 @@ export function TopBar({ onSearch }: TopBarProps) {
 
       {/* Center-Right Status */}
       <div className="flex items-center space-x-4">
-        <ConnectionStatus lagMs={120} status="live" />
+        {/* Role Persona Switcher */}
+        <select
+          value={role}
+          onChange={handleRoleChange}
+          className="bg-bg-base border border-line text-xs font-mono text-ink rounded px-2 py-1 outline-none cursor-pointer"
+          title="Switch compliance persona"
+        >
+          <option value="compliance_officer">Role: Compliance Officer</option>
+          <option value="investigator">Role: Investigator</option>
+          <option value="admin">Role: Admin</option>
+          <option value="auditor_readonly">Role: Auditor (Read-only)</option>
+        </select>
+
+        <ConnectionStatus />
 
         <div className="h-4 w-px bg-line" />
 

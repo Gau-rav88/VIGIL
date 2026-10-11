@@ -36,8 +36,19 @@ async def start_scenario(
     scenario_id: str,
     speed: float = 1.0,
     seed: int = 42,
+    epoch: str | None = None,
+    wait_subscribers_s: float | None = None,
 ) -> dict[str, Any]:
-    return await manager.start(scenario_id=scenario_id, speed=speed, seed=seed)
+    try:
+        return await manager.start(
+            scenario_id=scenario_id,
+            speed=speed,
+            seed=seed,
+            epoch=epoch,
+            wait_subscribers_s=wait_subscribers_s,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
 
 
 @app.post("/scenarios/{scenario_id}/stop")

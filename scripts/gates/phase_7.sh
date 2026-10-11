@@ -100,6 +100,13 @@ else
   record_check "P7-LINT" "Ruff & Mypy strict clean on serving plane" "FAIL" "Lint or typing errors found"
 fi
 
+# P7-NO-FAB: Static scan for no fabricated or canned mock data
+if uv run python scripts/check_no_fabricated.py >/dev/null 2>&1; then
+  record_check "P7-NO-FAB" "Zero fabricated/canned data in frontend/api" "PASS" "Static scanner verified 0 violations"
+else
+  record_check "P7-NO-FAB" "Zero fabricated/canned data in frontend/api" "FAIL" "Fabricated or canned data detected"
+fi
+
 # P7-REPORT: Route screenshots in reports/ui/
 shot_count=$(find reports/ui -name "*_lightbox.png" -o -name "*_floor.png" 2>/dev/null | wc -l | tr -d ' ')
 if [[ "$shot_count" -ge 16 ]]; then

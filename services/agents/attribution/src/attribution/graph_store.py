@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from typing import Any, Sequence
 
 import networkx as nx
@@ -105,7 +106,21 @@ class Neo4jGraphStore:
                 self.fallback_nx.add_node(s, type="Trader")
                 self.fallback_nx.add_node(b, type="Trader")
                 self.fallback_nx.add_edge(
-                    s, b, key=trade_id, qty=qty, price=price, ts_ms=ts_ms, symbol=symbol
+                    s,
+                    b,
+                    key=trade_id,
+                    qty=qty,
+                    price=price,
+                    ts_ms=ts_ms,
+                    symbol=symbol,
+                    seller_device_fp=t.get("seller_device_fp"),
+                    buyer_device_fp=t.get("buyer_device_fp"),
+                    seller_asn=t.get("seller_asn"),
+                    buyer_asn=t.get("buyer_asn"),
+                    seller_broker_id=t.get("seller_broker_id"),
+                    buyer_broker_id=t.get("buyer_broker_id"),
+                    seller_gateway_id=t.get("seller_gateway_id"),
+                    buyer_gateway_id=t.get("buyer_gateway_id"),
                 )
 
         if not self.driver or not self._connected:
@@ -210,6 +225,40 @@ class Neo4jGraphStore:
         except Exception as exc:
             logger.error("Failed to upsert LINKED edges in Neo4j", error=str(exc))
 
+    async def upsert_entities(
+        self,
+        entities: Sequence[Any],
+        symbol: str,
+        case_id: str = "default",
+    ) -> None:
+        """Write Ring entity clusters to Neo4j."""
+        if not entities or not self.driver or not self._connected:
+            return
+
+        query = """
+        UNWIND $batch AS row
+        MERGE (r:Ring {ring_id: row.ring_id})
+          SET r.symbol = $symbol,
+              r.entity_id = row.entity_id,
+              r.ring_score = row.ring_score,
+              r.accounts = row.accounts,
+              r.case_id = $case_id
+        """
+        batch = [
+            {
+                "ring_id": getattr(e, "entity_id", str(uuid.uuid4())),
+                "entity_id": getattr(e, "entity_id", str(uuid.uuid4())),
+                "ring_score": float(getattr(e, "ring_score", 0.8)),
+                "accounts": list(getattr(e, "accounts", [])),
+            }
+            for e in entities
+        ]
+        try:
+            async with self.driver.session() as s:
+                await s.run(query, batch=batch, symbol=symbol, case_id=case_id)
+        except Exception as exc:
+            logger.error("Failed to upsert Ring entities in Neo4j", error=str(exc))
+
     async def get_case_subgraph(
         self,
         case_id: str,
@@ -236,6 +285,16 @@ class Neo4jGraphStore:
             async with self.driver.session() as s:
                 res = await s.run(query, case_id=case_id, min_conf=min_conf, max_nodes=max_nodes)
                 records = await res.data()
+                if not records:
+                    # Fallback to all linked edges in case case_id was stored with symbol key
+                    fallback_query = """
+                    MATCH (a:Trader)-[l:LINKED]-(b:Trader)
+                    WHERE l.confidence >= $min_conf
+                    RETURN DISTINCT a.account_id AS src, b.account_id AS tgt, l.confidence AS conf, l.methods AS methods
+                    LIMIT $max_nodes
+                    """
+                    res = await s.run(fallback_query, min_conf=min_conf, max_nodes=max_nodes)
+                    records = await res.data()
                 seen_nodes = set()
                 for r in records:
                     src, tgt = str(r["src"]), str(r["tgt"])

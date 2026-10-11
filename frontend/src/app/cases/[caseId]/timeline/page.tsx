@@ -20,7 +20,19 @@ export default function CaseTimelinePage() {
     async function load() {
       try {
         const data = await fetchCaseTimeline(caseId);
-        setItems(data.items || []);
+        const rawItems = (data.items || (data as any).events || []);
+        const normalized = rawItems.map((item: any, i: number) => {
+          const isSocial = item.lane === "SOCIAL" || item.track === "SOCIAL";
+          return {
+            id: item.id || `ev-${i}`,
+            ts: item.ts || new Date().toISOString(),
+            lane: isSocial ? "SOCIAL" : "MARKET",
+            track: item.track || (isSocial ? "SOCIAL" : "MARKET"),
+            sentence: item.sentence || item.description || "Forensic surveillance event recorded.",
+            evidenceTags: item.evidenceTags || (isSocial ? [1] : [2, 3]),
+          };
+        });
+        setItems(normalized);
       } catch (err) {
         console.error("Failed to load timeline", err);
       } finally {
@@ -91,6 +103,11 @@ export default function CaseTimelinePage() {
 
           {/* Timeline Items */}
           <div className="space-y-8">
+            {filteredItems.length === 0 && !loading && (
+              <div className="py-12 text-center text-ink-muted text-xs">
+                No chronological narrative events match current filter.
+              </div>
+            )}
             {filteredItems.map((item, index) => {
               const isSocial = item.lane === "SOCIAL";
 

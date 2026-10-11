@@ -1,35 +1,42 @@
 "use client";
 
 import React from "react";
+import { useStream } from "@/state/useStream";
 
-interface ConnectionStatusProps {
-  lagMs?: number;
-  status?: "live" | "degraded" | "offline";
-}
+export function ConnectionStatus() {
+  const { connectionStatus, backendHealth } = useStream();
 
-export function ConnectionStatus({ lagMs = 120, status = "live" }: ConnectionStatusProps) {
-  if (status === "offline") {
+  if (backendHealth?.status === "offline" || connectionStatus === "offline") {
     return (
-      <div className="flex items-center space-x-2 text-xs text-seal font-medium">
-        <span className="h-2 w-2 rounded-full border border-seal bg-transparent animate-pulse" />
-        <span>Reconnecting... Live data paused</span>
+      <div className="flex items-center space-x-2 text-xs text-rose-500 font-medium px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/20">
+        <span className="h-2 w-2 rounded-full border border-rose-500 bg-rose-500 animate-pulse" />
+        <span>Backend Offline</span>
       </div>
     );
   }
 
-  if (status === "degraded") {
+  if (backendHealth?.status === "degraded") {
     return (
-      <div className="flex items-center space-x-2 text-xs text-tag font-medium">
-        <span className="h-2 w-2 rounded-full border border-tag bg-transparent" />
-        <span>Behind by {(lagMs / 1000).toFixed(1)} s</span>
+      <div className="flex items-center space-x-2 text-xs text-amber-500 font-medium px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
+        <span className="h-2 w-2 rounded-full border border-amber-500 bg-amber-500 animate-pulse" />
+        <span>Backend Degraded</span>
+      </div>
+    );
+  }
+
+  if (connectionStatus === "polling") {
+    return (
+      <div className="flex items-center space-x-2 text-xs text-blue-500 font-medium px-2 py-0.5 rounded bg-blue-500/10">
+        <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+        <span>Live (Polling)</span>
       </div>
     );
   }
 
   return (
-    <div className="flex items-center space-x-2 text-xs text-ink-muted">
-      <span className="h-2 w-2 rounded-full bg-verified animate-pulse" />
-      <span className="font-mono text-ink">Live, {lagMs} ms behind</span>
+    <div className="flex items-center space-x-2 text-xs text-emerald-500 font-medium px-2 py-0.5 rounded bg-emerald-500/10">
+      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+      <span className="font-mono">Live (WebSocket)</span>
     </div>
   );
 }

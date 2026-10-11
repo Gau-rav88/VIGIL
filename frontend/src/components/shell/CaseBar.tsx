@@ -20,14 +20,14 @@ interface CaseBarProps {
 }
 
 export function CaseBar({
-  symbol = "ZENITHSME",
-  exchange = "NSE SME",
-  status = "PENDING_REVIEW",
-  confidence = 0.964,
-  completeness = 1.0,
+  symbol = "—",
+  exchange = "—",
+  status = "—",
+  confidence = 0,
+  completeness = 0,
   dossierVersion = 1,
-  isVerified = true,
-  windowStr = "Window 04:20 to 04:37 UTC (IST 09:50 to 10:07)",
+  isVerified = false,
+  windowStr = "—",
   flags = [],
   onOpenDossier,
   onAdjustAnalysis,

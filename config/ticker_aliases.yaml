@@ -1,6 +1,25 @@
 version: "1.0.0"
 
 aliases:
+  BTCUSDT:
+    company_name: "Bitcoin"
+    aliases:
+      - "BTCUSDT"
+      - "BTC"
+      - "BITCOIN"
+      - "XBT"
+  ETHUSDT:
+    company_name: "Ethereum"
+    aliases:
+      - "ETHUSDT"
+      - "ETH"
+      - "ETHEREUM"
+  SOLUSDT:
+    company_name: "Solana"
+    aliases:
+      - "SOLUSDT"
+      - "SOL"
+      - "SOLANA"
   ZENITHSME:
     company_name: "Zenith SME Technologies Ltd"
     aliases:
@@ -23,3 +42,23 @@ aliases:
     aliases:
       - "SOLARIS"
       - "SOLAR"
+  RELIANCE:
+    company_name: "Reliance Industries Ltd"
+    aliases:
+      - "RELIANCE"
+      - "RIL"
+  TCS:
+    company_name: "Tata Consultancy Services Ltd"
+    aliases:
+      - "TCS"
+  INFY:
+    company_name: "Infosys Ltd"
+    aliases:
+      - "INFY"
+      - "INFOSYS"
+
+ambiguous_tokens:
+  - "SOL"
+  - "ZEN"
+  - "NOVA"
+  - "ACME"

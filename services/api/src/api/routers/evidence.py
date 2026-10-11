@@ -23,10 +23,10 @@ async def download_evidence(
         try:
             async with pool.acquire() as conn:
                 row = await conn.fetchrow(
-                    "SELECT storage_uri, evidence_type FROM vigil.evidence_objects WHERE evidence_id = $1;",
+                    "SELECT uri, type FROM vigil.evidence_objects WHERE evidence_id = $1;",
                     evidence_id,
                 )
-                if row and row["evidence_type"] == "CHART_IMAGE":
+                if row and row["type"] == "CHART_IMAGE":
                     media_type = "image/png"
         except Exception:
             pass

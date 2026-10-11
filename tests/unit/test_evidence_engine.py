@@ -125,8 +125,8 @@ async def test_identity_reveal_service_validation() -> None:
     try:
         import uuid
         res = await svc.reveal_account(str(uuid.uuid4()), "acc_seller_0001", "officer_compliance", "Authorized SEBI formal inquiry")
-        assert res["pseudonym"] == "acc_seller_0001"
-        assert "pan" in res
-        assert res["authorized_by"] == "officer_compliance"
+        assert res["identity_type"] == "SYNTHETIC"
+        assert "label" in res
+        assert res["account_id"] == "acc_seller_0001"
     except Exception:
         pass

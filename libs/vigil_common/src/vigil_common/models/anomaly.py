@@ -23,6 +23,7 @@ class AnomalyEvent(BaseModel):
         "HYPE_BURST",
         "NEAR_DUPLICATE_CAMPAIGN",
         "CROSS_MODAL_ALIGNMENT",
+        "ALIGNMENT_CANDIDATE",
         "FINGERPRINT_CLUSTER",
         "CIRCULAR_RING",
         "COORDINATED_VOLUME_LOOP"

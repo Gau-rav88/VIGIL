@@ -2,6 +2,21 @@ import os
 import time
 import uuid
 
+VIGIL_NAMESPACE = uuid.UUID("4c81f3e0-6a5d-4f1e-9a5c-1b7f3d2e8a90")
+
+
+def to_event_uuid(source: str, event_id: str | uuid.UUID) -> uuid.UUID:
+    """Return the UUID unchanged if event_id is already a valid UUID;
+    otherwise return uuid5(VIGIL_NAMESPACE, f"{source}|{event_id}")."""
+    if isinstance(event_id, uuid.UUID):
+        return event_id
+    if not isinstance(event_id, str):
+        event_id = str(event_id)
+    try:
+        return uuid.UUID(event_id)
+    except (ValueError, AttributeError):
+        return uuid.uuid5(VIGIL_NAMESPACE, f"{source}|{event_id}")
+
 
 def uuid7() -> str:
     """Generate RFC 9562 UUIDv7 (time-ordered 128-bit UUID)."""
@@ -20,10 +35,10 @@ def uuid7() -> str:
     b4 = ts_bytes[4]
     b5 = ts_bytes[5]
 
-    b6 = (0x70 | (rand_bytes[0] & 0x0F))
+    b6 = 0x70 | (rand_bytes[0] & 0x0F)
     b7 = rand_bytes[1]
 
-    b8 = (0x80 | (rand_bytes[2] & 0x3F))
+    b8 = 0x80 | (rand_bytes[2] & 0x3F)
     b9 = rand_bytes[3]
     b10_15 = rand_bytes[4:10]
 

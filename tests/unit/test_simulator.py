@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from simulator.market_model import MarketModel
 from simulator.orderbook import OrderBook
 from simulator.ring import build_ring
@@ -100,3 +101,41 @@ def test_market_model_determinism() -> None:
     if trades_1:
         assert trades_1[0].price == trades_2[0].price
         assert trades_1[0].qty == trades_2[0].qty
+
+
+@pytest.mark.asyncio
+async def test_simulator_start_fails_clearly_with_no_subscribers() -> None:
+    from simulator.scenarios import ScenarioManager
+
+    mgr = ScenarioManager()
+    with pytest.raises(RuntimeError, match="timed out after 0.1s waiting for subscriber"):
+        await mgr.start("baseline_01", speed=10.0, wait_subscribers_s=0.1)
+
+    assert not mgr.running
+    status = mgr.get_status()
+    assert status["running"] is False
+    assert status["active_market_clients"] == 0
+    assert status["active_social_clients"] == 0
+    assert "epoch" in status
+    assert "dropped_frames" in status
+
+
+@pytest.mark.asyncio
+async def test_simulator_start_succeeds_with_subscribers() -> None:
+    import asyncio
+
+    from simulator.scenarios import ScenarioManager
+
+    mgr = ScenarioManager()
+    q_market: asyncio.Queue[dict[str, object]] = asyncio.Queue()
+    q_social: asyncio.Queue[dict[str, object]] = asyncio.Queue()
+    mgr.market_subscribers.add(q_market)
+    mgr.social_subscribers.add(q_social)
+
+    res = await mgr.start("baseline_01", speed=10.0, wait_subscribers_s=0.5)
+    assert res["status"] == "started"
+    assert "epoch" in res
+    assert mgr.running is True
+
+    await mgr.stop()
+    assert mgr.running is False

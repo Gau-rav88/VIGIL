@@ -35,6 +35,10 @@ export function LagLane({
     }
   }, [drawn]);
 
+  if (!lag || !lag.seconds || lag.seconds <= 0 || !lag.tSocial || !lag.tMarket) {
+    return <div style={{ height }} className="w-full" />;
+  }
+
   const xs = x(new Date(lag.tSocial));
   const xm = x(new Date(lag.tMarket));
   const midX = (xs + xm) / 2;

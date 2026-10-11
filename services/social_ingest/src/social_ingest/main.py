@@ -9,6 +9,7 @@ import json
 import os
 import signal
 import socket
+import sys
 from typing import Any
 
 import websockets
@@ -17,6 +18,7 @@ from dotenv import find_dotenv, load_dotenv
 from vigil_common.logging import get_logger, setup_logging
 from vigil_common.models.social import SocialMessage
 from vigil_common.pseudonym import pseudonymize
+from vigil_common.topics import Topics
 
 from social_ingest.connectors.discord_connector import DiscordConnector
 from social_ingest.connectors.reddit_connector import RedditConnector
@@ -96,24 +98,31 @@ class SocialIngester:
                 tasks.append(asyncio.create_task(_run_discord()))
 
             # 2. Telegram Live Connector
-            telegram_channels = [c.strip() for c in os.getenv("TELEGRAM_CHANNELS", "").split(",") if c.strip()]
-            if telegram_channels or os.getenv("TELEGRAM_API_ID"):
-                self.telegram_connector = TelegramConnector(
-                    api_id=int(os.getenv("TELEGRAM_API_ID", "0")) or None,
-                    api_hash=os.getenv("TELEGRAM_API_HASH"),
-                    phone=os.getenv("TELEGRAM_PHONE"),
-                    channels=telegram_channels or ["binance_announcements", "cryptopumpalerts", "wallstreetbets"],
-                )
+            tele_id_str = os.getenv("TELEGRAM_API_ID", "").strip()
+            tele_hash_str = os.getenv("TELEGRAM_API_HASH", "").strip()
+            if tele_id_str and tele_hash_str and tele_id_str != "0":
+                try:
+                    tele_id = int(tele_id_str)
+                except ValueError:
+                    tele_id = None
+                if tele_id:
+                    telegram_channels = [c.strip() for c in os.getenv("TELEGRAM_CHANNELS", "").split(",") if c.strip()]
+                    self.telegram_connector = TelegramConnector(
+                        api_id=tele_id,
+                        api_hash=tele_hash_str,
+                        phone=os.getenv("TELEGRAM_PHONE"),
+                        channels=telegram_channels or ["binance_announcements", "cryptopumpalerts", "wallstreetbets"],
+                    )
 
-                async def _run_telegram() -> None:
-                    assert self.telegram_connector is not None
-                    logger.info("Launching Telegram live ingest...")
-                    async for msg in self.telegram_connector.stream():
-                        if not self.running:
-                            break
-                        await self._process_message(msg)
+                    async def _run_telegram() -> None:
+                        assert self.telegram_connector is not None
+                        logger.info("Launching Telegram live ingest...")
+                        async for msg in self.telegram_connector.stream():
+                            if not self.running:
+                                break
+                            await self._process_message(msg)
 
-                tasks.append(asyncio.create_task(_run_telegram()))
+                    tasks.append(asyncio.create_task(_run_telegram()))
 
             # 3. Reddit Live Connector
             reddit_client_id = os.getenv("REDDIT_CLIENT_ID", "").strip()
@@ -140,8 +149,10 @@ class SocialIngester:
             if tasks:
                 await asyncio.gather(*tasks, return_exceptions=True)
             else:
-                logger.warning("Live social adapter configured, but no active connector credentials found. Falling back to WebSocket.")
-                await self._run_ws_loop()
+                logger.error(
+                    "Live social adapter configured, but no active connector credentials provided (requires DISCORD_BOT_TOKEN, TELEGRAM_API_ID+TELEGRAM_API_HASH, or REDDIT_CLIENT_ID+REDDIT_CLIENT_SECRET)."
+                )
+                raise RuntimeError("No live social connector credentials provided for live SOCIAL_ADAPTER")
         else:
             await self._run_ws_loop()
 
@@ -184,7 +195,7 @@ class SocialIngester:
         }
         if self.producer:
             await self.producer.send(
-                topic="dlq.social",
+                topic=Topics.DLQ_SOCIAL,
                 value=json.dumps(dlq_record).encode("utf-8"),
             )
         logger.warning("Routed social message to DLQ", reason=reason, error=error)
@@ -275,7 +286,7 @@ class SocialIngester:
 
         if self.producer:
             await self.producer.send(
-                topic="social.messages.raw",
+                topic=Topics.SOCIAL_MESSAGES_RAW,
                 value=payload,
                 key=key,
             )
@@ -311,8 +322,18 @@ async def run() -> None:
         loop.add_signal_handler(sig, _sig_handler)
 
     task = asyncio.create_task(ingester.start())
+    stop_waiter = asyncio.create_task(stop_event.wait())
 
-    await stop_event.wait()
+    done, pending = await asyncio.wait([task, stop_waiter], return_when=asyncio.FIRST_COMPLETED)
+
+    if task in done:
+        stop_waiter.cancel()
+        await ingester.stop()
+        exc = task.exception()
+        if exc is not None:
+            raise exc
+        return
+
     await ingester.stop()
     task.cancel()
     try:
@@ -322,7 +343,11 @@ async def run() -> None:
 
 
 def main() -> None:
-    asyncio.run(run())
+    try:
+        asyncio.run(run())
+    except Exception as exc:
+        logger.error("social_ingest exited with fatal error", error=str(exc))
+        sys.exit(1)
 
 
 if __name__ == "__main__":

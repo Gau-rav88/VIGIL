@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+import os
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,23 @@ import yaml
 from simulator.groundtruth import registry
 from simulator.market_model import MarketModel
 from simulator.social_model import SocialModel
+
+DEFAULT_BASE_DT = datetime.datetime(2026, 3, 14, 4, 30, 0, tzinfo=datetime.timezone.utc)
+
+
+def resolve_epoch(epoch_str: str | None = None) -> datetime.datetime:
+    raw = epoch_str or os.getenv("SIM_EPOCH")
+    if not raw:
+        return DEFAULT_BASE_DT
+    raw = raw.strip()
+    if raw.lower() == "now":
+        return datetime.datetime.now(datetime.timezone.utc)
+    try:
+        if raw.endswith("Z"):
+            raw = raw[:-1] + "+00:00"
+        return datetime.datetime.fromisoformat(raw)
+    except Exception:
+        return DEFAULT_BASE_DT
 
 
 def find_config_dir() -> Path:
@@ -32,6 +50,7 @@ class ScenarioManager:
         self.active_scenario_id: str | None = None
         self.speed: float = 1.0
         self.seed: int = 42
+        self.epoch: datetime.datetime = DEFAULT_BASE_DT
         self.sim_time_s: float = 0.0
         self.running: bool = False
         self._task: asyncio.Task[None] | None = None
@@ -42,6 +61,10 @@ class ScenarioManager:
             "trades": 0,
             "l2": 0,
             "l3": 0,
+            "social": 0,
+        }
+        self.dropped_frames = {
+            "market": 0,
             "social": 0,
         }
 
@@ -60,23 +83,57 @@ class ScenarioManager:
             cfg.setdefault("id", scenario_id)
             return cfg
 
-    async def start(self, scenario_id: str, speed: float = 1.0, seed: int = 42) -> dict[str, Any]:
+    async def start(
+        self,
+        scenario_id: str,
+        speed: float = 1.0,
+        seed: int = 42,
+        epoch: str | None = None,
+        wait_subscribers_s: float | None = None,
+    ) -> dict[str, Any]:
         if self.running:
             await self.stop()
 
+        wait_timeout = float(
+            wait_subscribers_s
+            if wait_subscribers_s is not None
+            else os.getenv("SIM_WAIT_SUBSCRIBERS_S", "30.0")
+        )
+        if wait_timeout > 0:
+            loop = asyncio.get_running_loop()
+            start_wait = loop.time()
+            while (loop.time() - start_wait) < wait_timeout:
+                if len(self.market_subscribers) >= 1 and len(self.social_subscribers) >= 1:
+                    break
+                await asyncio.sleep(0.1)
+
+            if len(self.market_subscribers) < 1 or len(self.social_subscribers) < 1:
+                missing: list[str] = []
+                if len(self.market_subscribers) < 1:
+                    missing.append("market")
+                if len(self.social_subscribers) < 1:
+                    missing.append("social")
+                self.running = False
+                raise RuntimeError(
+                    f"Simulator start failed: timed out after {wait_timeout}s waiting for subscriber(s): {', '.join(missing)}"
+                )
+
+        self.epoch = resolve_epoch(epoch)
         self.active_scenario_id = scenario_id
         self.speed = max(0.1, speed)
         self.seed = seed
         self.sim_time_s = 0.0
         self.running = True
         self.events_emitted = {"trades": 0, "l2": 0, "l3": 0, "social": 0}
+        self.dropped_frames = {"market": 0, "social": 0}
 
         scenario_cfg = self.load_scenario_config(scenario_id)
+        scenario_cfg.setdefault("run_id", f"{scenario_id[:6]}_{seed}_{int(self.epoch.timestamp()) % 100000}")
 
         # Deterministic PCG64 PRNG
         rng = np.random.default_rng(np.random.PCG64(seed))
 
-        market_model = MarketModel(rng=rng, scenario_cfg=scenario_cfg)
+        market_model = MarketModel(rng=rng, scenario_cfg=scenario_cfg, base_dt=self.epoch)
         social_model = SocialModel(rng=rng, scenario_cfg=scenario_cfg, symbols=list(market_model.symbols_state.keys()))
 
         if market_model.ground_truth:
@@ -91,6 +148,7 @@ class ScenarioManager:
             "scenario_id": scenario_id,
             "speed": self.speed,
             "seed": self.seed,
+            "epoch": self.epoch.isoformat(),
         }
 
     async def stop(self) -> dict[str, Any]:
@@ -113,7 +171,9 @@ class ScenarioManager:
             "sim_time_s": round(self.sim_time_s, 2),
             "speed": self.speed,
             "seed": self.seed,
+            "epoch": self.epoch.isoformat(),
             "events_emitted": self.events_emitted,
+            "dropped_frames": self.dropped_frames,
             "active_market_clients": len(self.market_subscribers),
             "active_social_clients": len(self.social_subscribers),
         }
@@ -126,7 +186,7 @@ class ScenarioManager:
     ) -> None:
         duration_s = float(scenario_cfg.get("duration_s", 1800))
         dt_s = 0.25 if self.speed <= 2.0 else min(1.0, 0.05 * self.speed)
-        base_dt = datetime.datetime(2026, 3, 14, 4, 30, 0, tzinfo=datetime.timezone.utc)
+        base_dt = self.epoch
 
         try:
             while self.running and self.sim_time_s < duration_s:
@@ -182,14 +242,14 @@ class ScenarioManager:
             try:
                 q.put_nowait(frame)
             except asyncio.QueueFull:
-                pass
+                self.dropped_frames["market"] += 1
 
     def _broadcast_social(self, frame: dict[str, Any]) -> None:
         for q in list(self.social_subscribers):
             try:
                 q.put_nowait(frame)
             except asyncio.QueueFull:
-                pass
+                self.dropped_frames["social"] += 1
 
 
 manager = ScenarioManager()

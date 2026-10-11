@@ -24,25 +24,27 @@ from typing import Any
 import asyncpg
 import redis.asyncio as aioredis
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
-from numpy import median, zeros
+from numpy import median
+from vigil_common.clock import get_analysis_time
 from vigil_common.logging import get_logger, setup_logging
 from vigil_common.models.anomaly import AnomalyEvent, EvidenceRef
 from vigil_common.network import resolve_db_dsn, resolve_kafka_bootstrap, resolve_redis_url
+from vigil_common.topics import Topics
 
 from alignment_engine.mrs import MICRO_ANOMALY_TYPES, compute_mrs
-from alignment_engine.series import ALIGN_LOOKBACK_S, fetch_series
+from alignment_engine.series import ALIGN_INTERVAL_S, ALIGN_LOOKBACK_S, ALIGN_MIN_OBS, fetch_series
 from alignment_engine.xcorr import normalized_xcorr, permutation_test
 
 logger = get_logger("alignment_engine")
 
 # --- Configuration ---
-ALIGN_CYCLE_S = 60        # run alignment per ticker every 60 seconds
-FAST_PATH_WINDOW_S = 900  # HYPE_BURST + market anomaly within 15 min
-COOLDOWN_S = 30           # suppress duplicate CROSS_MODAL_ALIGNMENT per ticker
-P_THRESHOLD = 0.01        # permutation test significance threshold
+ALIGN_CYCLE_S = ALIGN_INTERVAL_S  # run alignment per ticker per configured interval
+FAST_PATH_WINDOW_S = 900          # HYPE_BURST + market anomaly within 15 min
+COOLDOWN_S = 30                   # suppress duplicate CROSS_MODAL_ALIGNMENT per ticker
+P_THRESHOLD = 0.01                # permutation test significance threshold
 LAG_MIN_S = -120
 LAG_MAX_S = 1800
-MRS_REDIS_TTL = 120       # TTL for mrs:{symbol} in Redis
+MRS_REDIS_TTL = 120               # TTL for mrs:{symbol} in Redis
 
 
 class AlignmentEngine:
@@ -50,8 +52,8 @@ class AlignmentEngine:
         self.kafka_bootstrap = resolve_kafka_bootstrap(os.getenv("KAFKA_BOOTSTRAP", "redpanda:9092"))
         self.db_dsn = resolve_db_dsn(
             os.getenv(
-                "TIMESCALE_DSN",
-                "postgresql://vigil:vigil@timescale:5432/vigil",
+                "PG_DSN",
+                os.getenv("TIMESCALE_DSN", "postgresql://vigil:vigil@timescale:5432/vigil"),
             )
         )
         self.redis_url = resolve_redis_url(os.getenv("REDIS_URL", "redis://redis:6379/0"))
@@ -60,6 +62,7 @@ class AlignmentEngine:
         self.db_pool: Any = None
         self.redis: Any = None
         self.running = False
+        self.stats: dict[str, int] = collections.defaultdict(int)
 
         # Anomaly history: symbol → {social: [...], market: [...]}
         self.history: dict[str, dict[str, list[dict[str, Any]]]] = collections.defaultdict(
@@ -90,9 +93,9 @@ class AlignmentEngine:
 
         # Kafka consumer — anomaly streams + hype scores
         self.consumer = AIOKafkaConsumer(
-            "anomaly.market",
-            "anomaly.social",
-            "hype.scores.norm",
+            Topics.ANOMALY_MARKET,
+            Topics.ANOMALY_SOCIAL,
+            Topics.HYPE_SCORES_NORM,
             bootstrap_servers=self.kafka_bootstrap,
             group_id="alignment_engine_workers_v3",
             auto_offset_reset="earliest",
@@ -173,9 +176,17 @@ class AlignmentEngine:
 
     async def _on_anomaly(self, topic: str, anom: dict[str, Any]) -> None:
         sym = anom.get("symbol", "UNKNOWN")
-        now_ts = datetime.datetime.now(datetime.timezone.utc).timestamp()
-        ts = now_ts
-        logger.info("Alignment engine received anomaly", topic=topic, symbol=sym, anomaly_type=anom.get("type"))
+        ts_val = anom.get("detected_at") or anom.get("window_end") or anom.get("ts")
+        if ts_val:
+            try:
+                ts = datetime.datetime.fromisoformat(str(ts_val).replace("Z", "+00:00")).timestamp()
+            except Exception:
+                ts = await get_analysis_time(symbol=sym, redis_client=self.redis)
+        else:
+            ts = await get_analysis_time(symbol=sym, redis_client=self.redis)
+
+        now_ts = ts
+        logger.info("Alignment engine received anomaly", topic=topic, symbol=sym, anomaly_type=anom.get("type"), event_ts=ts)
 
         # Update micro-structure cache for MRS component
         anom_type = anom.get("type", "")
@@ -183,7 +194,7 @@ class AlignmentEngine:
             current = self.micro_cache.get(sym, 0.0)
             self.micro_cache[sym] = max(current, float(anom.get("score", 0.0)))
 
-        # Clean history > 30 min
+        # Clean history > 30 min (relative to event-time watermark)
         bucket = self.history[sym]
         cutoff = now_ts - 1800.0
         bucket["social"] = [a for a in bucket["social"] if a["_ts"] >= cutoff]
@@ -204,16 +215,17 @@ class AlignmentEngine:
     # ------------------------------------------------------------------
 
     async def _check_fast_path(self, sym: str, now_ts: float) -> None:
-        """HYPE_BURST + VOLUME_SPIKE|PRICE_JUMP within 15 min → fast-path alignment."""
+        """HYPE_BURST + VOLUME_SPIKE|PRICE_JUMP within 15 min → real statistical fast-path test."""
         bucket = self.history[sym]
 
         hype_bursts = [
             a for a in bucket["social"]
             if a.get("type") == "HYPE_BURST"
         ]
+        # PRD P4-T04 strictly restricts fast-path market anomalies to VOLUME_SPIKE and PRICE_JUMP
         market_events = [
             a for a in bucket["market"]
-            if a.get("type") in ("VOLUME_SPIKE", "PRICE_JUMP", "WASH_CYCLE", "SPREAD_WIDENING", "DEPTH_IMBALANCE")
+            if a.get("type") in ("VOLUME_SPIKE", "PRICE_JUMP")
         ]
 
         logger.info(
@@ -236,22 +248,67 @@ class AlignmentEngine:
                 if -60.0 <= lag_s <= FAST_PATH_WINDOW_S:
                     self.cooldowns[sym] = now_ts
                     effective_lag = max(1.0, lag_s)
-                    logger.info(
-                        "FAST PATH: HYPE_BURST → market anomaly detected",
-                        symbol=sym,
-                        lag_s=effective_lag,
-                        burst_type=burst.get("type"),
-                        market_type=mev.get("type"),
-                    )
-                    await self._emit_alignment(
-                        sym=sym,
-                        social_anom=burst,
-                        market_anom=mev,
-                        lag_s=effective_lag,
-                        xcorr_peak=0.85,  # estimated for fast-path
-                        p_value=0.0,      # qualifies without test
-                        fast_path=True,
-                    )
+
+                    if not self.db_pool:
+                        logger.warning("DB pool unavailable for fast path", symbol=sym)
+                        return
+
+                    analysis_now = await get_analysis_time(symbol=sym, redis_client=self.redis)
+                    async with self.db_pool.acquire() as conn:
+                        h, v, a, _spread_rel, is_sufficient = await fetch_series(
+                            conn, sym, analysis_now, ALIGN_LOOKBACK_S, min_obs=ALIGN_MIN_OBS
+                        )
+
+                    if not is_sufficient:
+                        logger.info(
+                            "Fast path: insufficient data for statistical test; emitting candidate only",
+                            symbol=sym,
+                        )
+                        await self._emit_candidate(
+                            sym=sym,
+                            social_anom=burst,
+                            market_anom=mev,
+                            lag_s=effective_lag,
+                            reason="insufficient_observations",
+                        )
+                        return
+
+                    # Compute real normalized xcorr and permutation test
+                    best_lag_s, xcorr_peak = normalized_xcorr(h, v, LAG_MIN_S, LAG_MAX_S)
+                    window_id = datetime.datetime.fromtimestamp(analysis_now, tz=datetime.timezone.utc).strftime("%Y%m%d%H%M")
+                    p_value = permutation_test(h, v, xcorr_peak, sym, window_id, b=500)
+
+                    if p_value < P_THRESHOLD and best_lag_s > 0 and xcorr_peak > 0.3:
+                        logger.info(
+                            "FAST PATH: Statistical alignment confirmed",
+                            symbol=sym,
+                            lag_s=best_lag_s,
+                            xcorr_peak=xcorr_peak,
+                            p_value=p_value,
+                        )
+                        await self._emit_alignment(
+                            sym=sym,
+                            social_anom=burst,
+                            market_anom=mev,
+                            lag_s=best_lag_s,
+                            xcorr_peak=xcorr_peak,
+                            p_value=p_value,
+                            fast_path=True,
+                        )
+                    else:
+                        logger.info(
+                            "Fast path: permutation test not significant; emitting candidate",
+                            symbol=sym,
+                            p_value=p_value,
+                            xcorr_peak=xcorr_peak,
+                        )
+                        await self._emit_candidate(
+                            sym=sym,
+                            social_anom=burst,
+                            market_anom=mev,
+                            lag_s=best_lag_s,
+                            reason=f"p_value_{p_value:.4f}",
+                        )
                     return
 
     # ------------------------------------------------------------------
@@ -275,16 +332,20 @@ class AlignmentEngine:
     async def _run_alignment_and_mrs(self, sym: str, now_ts: float) -> None:
         """Full alignment + MRS for one symbol."""
         # --- Fetch time series from TimescaleDB ---
-        if self.db_pool is not None:
-            async with self.db_pool.acquire() as conn:
-                h, v, a, _spread_rel = await fetch_series(conn, sym, now_ts, ALIGN_LOOKBACK_S)
-        else:
-            # Fallback: minimal arrays
-            n = ALIGN_LOOKBACK_S
-            h = zeros(n, dtype=float)
-            v = zeros(n, dtype=float)
-            a = zeros(n, dtype=float)
-            _spread_rel = zeros(n, dtype=float)
+        if self.db_pool is None:
+            logger.error("DB pool unavailable for MRS run; skipping symbol", symbol=sym)
+            return
+
+        async with self.db_pool.acquire() as conn:
+            analysis_now = await get_analysis_time(symbol=sym, redis_client=self.redis, db_conn=conn)
+            h, v, a, _spread_rel, is_sufficient = await fetch_series(
+                conn, sym, analysis_now, ALIGN_LOOKBACK_S, min_obs=ALIGN_MIN_OBS
+            )
+
+        if not is_sufficient:
+            logger.info("Skipping alignment and MRS: insufficient_data", symbol=sym)
+            self.stats["insufficient_data"] += 1
+            return
 
         # Inject latest hype into h[-1] if available
         if sym in self.hype_cache:
@@ -438,16 +499,18 @@ class AlignmentEngine:
             evidence.append(EvidenceRef(**ev))
         for ev in market_anom.get("evidence_refs", []):
             evidence.append(EvidenceRef(**ev))
+        if not evidence:
+            evidence.append(EvidenceRef(kind="anomaly_id", ref=str(uuid.uuid4())))
 
         participants = list(
             set(social_anom.get("participants", []) + market_anom.get("participants", []))
         )
 
-        # Score: high if xcorr is strong and p is very small
-        align_strength = xcorr_peak * (1.0 - p_value) if not fast_path else 0.9
+        # Score: high if xcorr is strong and p is very small - computed ONLY from real inputs
+        align_strength = float(xcorr_peak * (1.0 - p_value))
         social_s = float(social_anom.get("score", 0.8))
         market_s = float(market_anom.get("score", 0.8))
-        score = min(1.0, 0.4 * align_strength + 0.3 * social_s + 0.3 * market_s)
+        score = min(1.0, max(0.1, 0.4 * align_strength + 0.3 * social_s + 0.3 * market_s))
 
         fused = AnomalyEvent(
             schema_version="1.0.0",
@@ -488,8 +551,73 @@ class AlignmentEngine:
         key = sym.encode("utf-8")
 
         if self.producer:
-            await self.producer.send(topic="anomaly.fused", value=payload, key=key)
-            await self.producer.send(topic="case.trigger", value=payload, key=key)
+            await self.producer.send(topic=Topics.ANOMALY_FUSED, value=payload, key=key)
+            await self.producer.send(topic=Topics.CASE_TRIGGER, value=payload, key=key)
+            await self.producer.flush()
+
+    async def _emit_candidate(
+        self,
+        sym: str,
+        social_anom: dict[str, Any],
+        market_anom: dict[str, Any],
+        lag_s: float,
+        reason: str,
+    ) -> None:
+        """
+        Emits an ALIGNMENT_CANDIDATE anomaly without xcorr/p fields.
+        Candidates do NOT open cases and are not sent to case.trigger.
+        """
+        now_dt = datetime.datetime.now(datetime.timezone.utc)
+        now_iso = now_dt.isoformat()
+        start_iso = social_anom.get("window_start", now_iso)
+        end_iso = market_anom.get("window_end", now_iso)
+
+        evidence: list[EvidenceRef] = []
+        if social_anom.get("anomaly_id"):
+            evidence.append(EvidenceRef(kind="anomaly_id", ref=str(social_anom["anomaly_id"])))
+        if market_anom.get("anomaly_id"):
+            evidence.append(EvidenceRef(kind="anomaly_id", ref=str(market_anom["anomaly_id"])))
+        if not evidence:
+            evidence.append(EvidenceRef(kind="anomaly_id", ref=str(uuid.uuid4())))
+
+        participants = list(
+            set(social_anom.get("participants", []) + market_anom.get("participants", []))
+        )
+
+        candidate = AnomalyEvent(
+            schema_version="1.0.0",
+            anomaly_id=str(uuid.uuid4()),
+            type="ALIGNMENT_CANDIDATE",
+            source_agent="orchestrator",
+            symbol=sym,
+            window_start=start_iso,
+            window_end=end_iso,
+            score=0.5,
+            severity="LOW",
+            metrics={
+                "statistical_test": "not_run",
+                "reason": reason,
+                "lag_s": round(lag_s, 2),
+            },
+            participants=participants,
+            evidence_refs=evidence[:15],
+            detector_version="2.0.0",
+            config_hash=self.config_hash,
+            detected_at=now_iso,
+        )
+
+        logger.info(
+            "Emitting ALIGNMENT_CANDIDATE",
+            symbol=sym,
+            reason=reason,
+            lag_s=lag_s,
+        )
+
+        payload = json.dumps(candidate.model_dump()).encode("utf-8")
+        key = sym.encode("utf-8")
+
+        if self.producer:
+            await self.producer.send(topic=Topics.ANOMALY_FUSED, value=payload, key=key)
             await self.producer.flush()
 
 

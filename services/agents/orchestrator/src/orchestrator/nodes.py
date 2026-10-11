@@ -51,18 +51,54 @@ class OrchestratorDeps:
 def open_case_node(deps: OrchestratorDeps) -> Callable[[CaseState], Any]:
     async def node(state: CaseState) -> dict[str, Any]:
         case_id = state.get("case_id") or str(uuid.uuid4())
-        sym = state.get("symbol", "ZENITHSME")
-        now_dt = datetime.datetime.now(datetime.timezone.utc)
-        start_dt = now_dt - datetime.timedelta(hours=2)
-
-        window = state.get("window") or {
-            "start": start_dt.isoformat(),
-            "end": now_dt.isoformat(),
-            "widen_count": 0,
-        }
-
+        sym = state.get("symbol") or "UNKNOWN"
+        exchange = state.get("exchange") or ("BINANCE" if "USDT" in sym else "SYNTH")
         flags = list(state.get("flags") or [])
         anom_id = state.get("trigger_anomaly_id") or str(uuid.uuid4())
+
+        pad_s = int(os.getenv("CASE_WINDOW_PAD_S", "300"))
+        start_dt = None
+        end_dt = None
+
+        # Derive case window from trigger anomaly window + padding if available
+        if deps.pool and anom_id:
+            try:
+                async with deps.pool.acquire() as conn:
+                    anom_row = await conn.fetchrow(
+                        """
+                        SELECT window_start, window_end, symbol, metrics
+                        FROM vigil.anomalies
+                        WHERE anomaly_id = $1::uuid;
+                        """,
+                        uuid.UUID(anom_id),
+                    )
+                    if anom_row:
+                        if anom_row["symbol"]:
+                            sym = anom_row["symbol"]
+                        if anom_row.get("metrics") and isinstance(anom_row["metrics"], dict) and anom_row["metrics"].get("exchange"):
+                            exchange = str(anom_row["metrics"]["exchange"])
+                        elif "USDT" in sym:
+                            exchange = "BINANCE"
+                        if anom_row["window_start"] and anom_row["window_end"]:
+                            start_dt = anom_row["window_start"] - datetime.timedelta(seconds=pad_s)
+                            end_dt = anom_row["window_end"] + datetime.timedelta(seconds=pad_s)
+            except Exception as exc:
+                logger.warning("Could not fetch trigger anomaly window", error=str(exc))
+
+        if start_dt is None or end_dt is None:
+            if state.get("window") and "start" in state["window"] and "end" in state["window"]:
+                start_dt = datetime.datetime.fromisoformat(state["window"]["start"].replace("Z", "+00:00"))
+                end_dt = datetime.datetime.fromisoformat(state["window"]["end"].replace("Z", "+00:00"))
+            else:
+                now_dt = datetime.datetime.now(datetime.timezone.utc)
+                end_dt = now_dt
+                start_dt = now_dt - datetime.timedelta(hours=2)
+
+        window = {
+            "start": start_dt.isoformat(),
+            "end": end_dt.isoformat(),
+            "widen_count": state.get("window", {}).get("widen_count", 0),
+        }
 
         # Check overlap merge (FR-ORC-07: >= 50% overlap on same symbol)
         if deps.pool:
@@ -82,21 +118,22 @@ def open_case_node(deps: OrchestratorDeps) -> Callable[[CaseState], Any]:
                         flags.append("MERGED")
                         return {"case_id": str(existing["case_id"]), "flags": flags, "stage": "OPENED"}
 
-                    # Insert new case row
+                    # Insert new case row with real metadata
                     await conn.execute(
                         """
                         INSERT INTO vigil.cases (
                             case_id, symbol, exchange, status, window_start, window_end,
                             trigger_anomaly_id, mrs, overall_confidence, completeness, state, is_synthetic
-                        ) VALUES ($1::uuid, $2, 'SYNTH', 'OPENED'::vigil.case_status, $3, $4, $5::uuid, 88.5, 0.94, 0.92, $6::jsonb, true)
+                        ) VALUES ($1::uuid, $2, $3, 'OPENED'::vigil.case_status, $4, $5, $6::uuid, 0.0, 0.0, 0.0, $7::jsonb, true)
                         ON CONFLICT (case_id) DO UPDATE SET updated_at = now();
                         """,
                         uuid.UUID(case_id),
                         sym,
+                        exchange,
                         start_dt,
-                        now_dt,
+                        end_dt,
                         uuid.UUID(anom_id),
-                        json.dumps({"symbol": sym, "stage": "OPENED"}),
+                        json.dumps({"symbol": sym, "exchange": exchange, "stage": "OPENED"}),
                     )
             except Exception as exc:
                 logger.warning("DB insert in open_case failed, proceeding in-memory", error=str(exc))
@@ -104,7 +141,7 @@ def open_case_node(deps: OrchestratorDeps) -> Callable[[CaseState], Any]:
         return {
             "case_id": case_id,
             "symbol": sym,
-            "exchange": "SYNTH",
+            "exchange": exchange,
             "stage": "OPENED",
             "trigger_anomaly_id": anom_id,
             "window": window,
@@ -119,7 +156,7 @@ def open_case_node(deps: OrchestratorDeps) -> Callable[[CaseState], Any]:
 
 def enrich_node(deps: OrchestratorDeps) -> Callable[[CaseState], Any]:
     async def node(state: CaseState) -> dict[str, Any]:
-        sym = state.get("symbol", "ZENITHSME")
+        sym = state.get("symbol") or "UNKNOWN"
         window = state.get("window") or {}
         attempts = dict(state.get("attempts") or {})
         attempts["enrich"] = attempts.get("enrich", 0) + 1
@@ -150,13 +187,40 @@ def enrich_node(deps: OrchestratorDeps) -> Callable[[CaseState], Any]:
 
 def align_node(deps: OrchestratorDeps) -> Callable[[CaseState], Any]:
     async def node(state: CaseState) -> dict[str, Any]:
-        # Default alignment for demo/evaluation
-        alignment = {
-            "best_lag_s": 150.0,
-            "xcorr_peak": 0.685,
-            "p_value": 0.001,
-            "status": "SIGNIFICANT",
-        }
+        # Derive real alignment from anomaly trigger or DB if available
+        anom_id = state.get("trigger_anomaly_id")
+        alignment = None
+
+        if deps.pool and anom_id:
+            try:
+                async with deps.pool.acquire() as conn:
+                    row = await conn.fetchrow(
+                        "SELECT metrics FROM vigil.anomalies WHERE anomaly_id = $1::uuid",
+                        uuid.UUID(anom_id),
+                    )
+                    if row and row["metrics"]:
+                        m = row["metrics"]
+                        if isinstance(m, str):
+                            m = json.loads(m)
+                        p_val = float(m.get("p_value", 0.001))
+                        alignment = {
+                            "best_lag_s": float(m.get("best_lag_s", m.get("lag_seconds", 0.0))),
+                            "xcorr_peak": float(m.get("xcorr_peak", 0.0)),
+                            "p_value": p_val,
+                            "status": "SIGNIFICANT" if p_val < 0.01 else "CANDIDATE",
+                        }
+            except Exception as exc:
+                logger.debug("Failed fetching alignment metrics from DB", error=str(exc))
+
+        if not alignment:
+            alignment = state.get("alignment")
+            if not alignment or alignment.get("p_value") is None:
+                alignment = {
+                    "best_lag_s": 0.0,
+                    "xcorr_peak": 0.0,
+                    "p_value": 1.0,
+                    "status": "NOT_RUN",
+                }
 
         return {
             "stage": "ALIGNED",
@@ -168,7 +232,7 @@ def align_node(deps: OrchestratorDeps) -> Callable[[CaseState], Any]:
 
 def attribute_node(deps: OrchestratorDeps) -> Callable[[CaseState], Any]:
     async def node(state: CaseState) -> dict[str, Any]:
-        sym = state.get("symbol", "ZENITHSME")
+        sym = state.get("symbol") or "UNKNOWN"
         directives = state.get("directives") or []
         window = dict(state.get("window") or {})
 
@@ -177,20 +241,36 @@ def attribute_node(deps: OrchestratorDeps) -> Callable[[CaseState], Any]:
             if d.get("type") == "WIDEN_WINDOW":
                 window["widen_count"] = window.get("widen_count", 0) + 1
 
-        rings = [
-            {
-                "ring_id": "ring_01",
-                "entity_id": f"ENTITY-{sym}-01",
-                "ring_score": 0.988,
-                "accounts": [f"acc_{i:02d}" for i in range(1, 21)],
-                "methods": ["SHARED_DEVICE", "CIRCULAR_CYCLE", "SHARED_NETWORK", "SYNCHRONIZED_ORDERS"],
-                "cycle_count": 14,
-                "net_volume": 385000,
-            }
-        ]
-        leads = [
-            {"account_id": "acc_lead_01", "confidence": 0.55, "note": "Lead under PRD G-2 threshold"}
-        ]
+        rings: list[dict[str, Any]] = []
+        leads: list[dict[str, Any]] = []
+
+        if deps.neo4j_driver:
+            try:
+                async with deps.neo4j_driver.session() as session:
+                    res = await session.run(
+                        """
+                        MATCH (r:Ring) WHERE r.symbol = $sym
+                        RETURN r.ring_id AS ring_id, r.entity_id AS entity_id,
+                               r.ring_score AS ring_score, r.accounts AS accounts,
+                               r.methods AS methods, r.cycle_count AS cycle_count,
+                               r.net_volume AS net_volume
+                        """,
+                        sym=sym,
+                    )
+                    records = await res.data()
+                    for rec in records:
+                        rings.append(dict(rec))
+            except Exception as exc:
+                logger.debug("Neo4j ring query in attribute_node", error=str(exc))
+
+        if not rings and deps.tool_bus:
+            attr_res = await deps.tool_bus.send_command(
+                "attribution", "REQUEST_ATTRIBUTION_RINGS", {"symbol": sym, "window": window}
+            )
+            data = attr_res.get("data")
+            if isinstance(data, dict):
+                rings = data.get("rings", [])
+                leads = data.get("leads", [])
 
         return {
             "stage": "ATTRIBUTING",
@@ -203,10 +283,25 @@ def attribute_node(deps: OrchestratorDeps) -> Callable[[CaseState], Any]:
 
 def assess_node(deps: OrchestratorDeps) -> Callable[[CaseState], Any]:
     async def node(state: CaseState) -> dict[str, Any]:
+        alignment = state.get("alignment") or {}
+        p_val = alignment.get("p_value", 1.0)
+        xcorr = alignment.get("xcorr_peak", 0.0)
+        attr = state.get("attribution") or {}
+        has_rings = bool(attr.get("rings"))
+
+        align_conf = max(0.0, min(1.0, float(xcorr))) if p_val < 0.01 else 0.0
+        attr_conf = 0.95 if has_rings else 0.40
+        if has_rings and align_conf > 0.0:
+            overall = (align_conf * 0.4) + (attr_conf * 0.6)
+        elif has_rings:
+            overall = attr_conf * 0.85
+        else:
+            overall = align_conf * 0.7
+
         conf = {
-            "overall": 0.94,
-            "completeness": 0.92,
-            "components": {"alignment": 0.96, "attribution": 0.95, "market": 0.92, "social": 0.93},
+            "overall": round(overall, 3),
+            "completeness": 0.90 if has_rings else 0.60,
+            "components": {"alignment": align_conf, "attribution": attr_conf},
         }
 
         clauses = deps.regulatory_clauses or [
@@ -231,17 +326,19 @@ def assess_node(deps: OrchestratorDeps) -> Callable[[CaseState], Any]:
 
 def draft_node(deps: OrchestratorDeps) -> Callable[[CaseState], Any]:
     async def node(state: CaseState) -> dict[str, Any]:
-        sym = state.get("symbol", "ZENITHSME")
+        sym = state.get("symbol") or "UNKNOWN"
+        case_id = state.get("case_id") or "case"
+        short_id = case_id.replace("-", "")[:12]
         attempts = dict(state.get("attempts") or {})
         attempts["draft"] = attempts.get("draft", 0) + 1
 
         # Use TemplateNarrator if narrative_mode is TEMPLATE or on 3rd attempt
         narrator = deps.template_narrator if attempts.get("draft", 0) >= 2 else deps.llm_narrator
         ev_ids = {
-            "TRADE_SLICE": "EV-TRADE_SLICE-c6f9ab0bc2b3",
-            "SOCIAL_SLICE": "EV-SOCIAL_SLICE-a42e5bc91234",
-            "GRAPH_EXPORT": "EV-GRAPH_EXPORT-f8812cde4567",
-            "ANOMALY_EVENT": "EV-ANOMALY_EVENT-b7104ad56789",
+            "TRADE_SLICE": f"EV-TRADE_SLICE-{short_id}",
+            "SOCIAL_SLICE": f"EV-SOCIAL_SLICE-{short_id}",
+            "GRAPH_EXPORT": f"EV-GRAPH_EXPORT-{short_id}",
+            "ANOMALY_EVENT": f"EV-ANOMALY_EVENT-{short_id}",
         }
 
         text, mode = narrator.generate_narrative(
@@ -287,10 +384,36 @@ def validate_node(deps: OrchestratorDeps) -> Callable[[CaseState], Any]:
 def sign_node(deps: OrchestratorDeps) -> Callable[[CaseState], Any]:
     async def node(state: CaseState) -> dict[str, Any]:
         case_id = state.get("case_id", str(uuid.uuid4()))
-        sym = state.get("symbol", "ZENITHSME")
+        sym = state.get("symbol") or "UNKNOWN"
         attr = state.get("attribution") or {}
         rings = attr.get("rings")
-        anomalies = [{"anomaly_id": state.get("trigger_anomaly_id", "ANOM-01"), "type": "CROSS_MODAL_ALIGNMENT"}]
+        anomalies: list[dict[str, Any]] = []
+
+        if deps.pool and sym != "UNKNOWN":
+            try:
+                async with deps.pool.acquire() as conn:
+                    anom_rows = await conn.fetch(
+                        """
+                        SELECT anomaly_id, type, severity, score, metrics
+                        FROM vigil.anomalies
+                        WHERE symbol = $1
+                        ORDER BY detected_at DESC LIMIT 20;
+                        """,
+                        sym,
+                    )
+                    for r in anom_rows:
+                        anomalies.append({
+                            "anomaly_id": str(r["anomaly_id"]),
+                            "type": str(r["type"]),
+                            "severity": str(r["severity"]),
+                            "score": float(r["score"]),
+                            "metrics": dict(r["metrics"]) if r["metrics"] else {},
+                        })
+            except Exception as exc:
+                logger.debug("Could not fetch anomalies for case in sign_node", error=str(exc))
+
+        if not anomalies and state.get("trigger_anomaly_id"):
+            anomalies = [{"anomaly_id": state["trigger_anomaly_id"], "type": "CROSS_MODAL_ALIGNMENT"}]
 
         draft = state.get("dossier_draft") or {}
         custom_summary = draft.get("executive_summary")
@@ -348,7 +471,7 @@ def await_review_node(deps: OrchestratorDeps) -> Callable[[CaseState], Any]:
 def publish_node(deps: OrchestratorDeps) -> Callable[[CaseState], Any]:
     async def node(state: CaseState) -> dict[str, Any]:
         case_id = state.get("case_id", str(uuid.uuid4()))
-        sym = state.get("symbol", "ZENITHSME")
+        sym = state.get("symbol") or "UNKNOWN"
         rev = state.get("review") or {}
 
         # Guardrail: Cannot reach PUBLISHED without compliance approval

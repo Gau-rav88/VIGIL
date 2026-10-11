@@ -84,8 +84,10 @@ class BinanceMarketAdapter:
                 buyer_order_id = str(data.get("b", 0))
                 seller_order_id = str(data.get("a", 0))
 
-                buyer_acc = hashlib.sha256(f"binance-buyer-{buyer_order_id}".encode()).hexdigest()[:24]
-                seller_acc = hashlib.sha256(f"binance-seller-{seller_order_id}".encode()).hexdigest()[:24]
+                buyer_hash = hashlib.sha256(f"BINANCE|{symbol}|{trade_id}|BUY".encode()).hexdigest()[:24]
+                seller_hash = hashlib.sha256(f"BINANCE|{symbol}|{trade_id}|SELL".encode()).hexdigest()[:24]
+                buyer_acc = f"anon_{buyer_hash}"
+                seller_acc = f"anon_{seller_hash}"
 
                 self.seq_counters[symbol] = self.seq_counters.get(symbol, 0) + 1
                 seq = self.seq_counters[symbol]
@@ -117,7 +119,7 @@ class BinanceMarketAdapter:
                         order_id=seller_order_id,
                     ),
                     market_segment="CASH",
-                    is_synthetic=False,
+                    is_synthetic=True,
                 )
 
                 return {

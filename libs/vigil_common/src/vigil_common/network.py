@@ -71,3 +71,18 @@ def resolve_neo4j_uri(uri: str | None = None) -> str:
         except socket.gaierror:
             return raw.replace("://neo4j:7687", "://localhost:7687")
     return raw
+
+
+def resolve_s3_endpoint(endpoint: str | None = None) -> str:
+    """Resolve MinIO/S3 endpoint URL.
+
+    If the endpoint points to Docker service name 'minio' but cannot be resolved,
+    falls back to localhost:9000.
+    """
+    raw = endpoint or os.getenv("S3_ENDPOINT") or "http://minio:9000"
+    if "minio:9000" in raw:
+        try:
+            socket.gethostbyname("minio")
+        except socket.gaierror:
+            return raw.replace("minio:9000", "localhost:9000")
+    return raw

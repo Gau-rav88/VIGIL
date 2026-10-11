@@ -15,6 +15,7 @@ from langgraph.types import Command
 from neo4j import AsyncGraphDatabase
 from vigil_common.logging import get_logger, setup_logging
 from vigil_common.network import resolve_db_dsn, resolve_kafka_bootstrap, resolve_neo4j_uri
+from vigil_common.topics import Topics
 
 from orchestrator.bus import AgentToolBus
 from orchestrator.graph import build_graph
@@ -43,6 +44,7 @@ class CaseOrchestrator:
         self.running = False
         self.checkpointer_cm: Any = None
         self.checkpointer: Any = None
+        self.processed_anomaly_ids: set[str] = set()
 
     async def start(self) -> None:
         self.running = True
@@ -82,8 +84,8 @@ class CaseOrchestrator:
         await self.producer.start()
 
         self.consumer = AIOKafkaConsumer(
-            "case.trigger",
-            "anomaly.fused",
+            Topics.CASE_TRIGGER,
+            Topics.ANOMALY_FUSED,
             bootstrap_servers=self.kafka_bootstrap,
             group_id="orchestrator_workers_v2",
             auto_offset_reset="earliest",
@@ -119,10 +121,20 @@ class CaseOrchestrator:
         anom_id = anom.get("anomaly_id", str(uuid.uuid4()))
         anom_type = anom.get("type", "CROSS_MODAL_ALIGNMENT")
 
+        # Deduplicate trigger processing (alignment_engine publishes to both anomaly.fused and case.trigger)
+        if anom_id in self.processed_anomaly_ids:
+            logger.debug("Trigger already processed, deduplicating", anomaly_id=anom_id)
+            return
+        if len(self.processed_anomaly_ids) > 10000:
+            self.processed_anomaly_ids.clear()
+        self.processed_anomaly_ids.add(anom_id)
+
+        # Candidates must not open cases
+        if anom_type == "ALIGNMENT_CANDIDATE":
+            logger.info("ALIGNMENT_CANDIDATE anomaly received; skipping case creation", anomaly_id=anom_id)
+            return
+
         logger.info("Orchestrator received anomaly event", symbol=sym, anomaly_type=anom_type)
-
-        # Simulation and real-time triggers are processed immediately
-
 
         # Check existing active case in DB
         case_id = await self._get_active_case_for_symbol(sym)
@@ -130,18 +142,38 @@ class CaseOrchestrator:
             logger.info("Active case already exists for symbol", symbol=sym, case_id=case_id)
             return
 
-        if anom_type not in ("CROSS_MODAL_ALIGNMENT", "CIRCULAR_RING", "FINGERPRINT_CLUSTER", "PUMP_AND_DUMP"):
+        if anom_type not in (
+            "CROSS_MODAL_ALIGNMENT",
+            "CIRCULAR_RING",
+            "FINGERPRINT_CLUSTER",
+            "PUMP_AND_DUMP",
+            "COORDINATED_VOLUME_LOOP",
+        ):
             return
+
+        # Determine exchange from trigger / symbol metadata instead of hardcoded SYNTH
+        exchange = anom.get("exchange") or ("BINANCE" if "USDT" in sym else "SYNTH")
 
         # Generate new case ID
         new_case_id = str(uuid.uuid4())
+        flags = [anom_type] if anom_type != "CROSS_MODAL_ALIGNMENT" else []
         init_state: CaseState = {
             "case_id": new_case_id,
             "symbol": sym,
-            "exchange": "SYNTH",
+            "exchange": exchange,
             "trigger_anomaly_id": anom_id,
             "stage": "OPENED",
+            "flags": flags,
         }
+        if anom.get("metrics") and isinstance(anom["metrics"], dict):
+            m = anom["metrics"]
+            p_val = float(m.get("p_value", 0.001))
+            init_state["alignment"] = {
+                "best_lag_s": float(m.get("best_lag_s", m.get("lag_seconds", 0.0))),
+                "xcorr_peak": float(m.get("xcorr_peak", 0.0)),
+                "p_value": p_val,
+                "status": "SIGNIFICANT" if p_val < 0.01 else "CANDIDATE",
+            }
 
         config = {"configurable": {"thread_id": new_case_id}}
         logger.info("Invoking LangGraph for new case", case_id=new_case_id, symbol=sym)

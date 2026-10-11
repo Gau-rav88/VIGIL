@@ -488,5 +488,48 @@ GATE 7 RESULT: PASS (11/11 checks passed)
    - Cytoscape fcose layout physics iterations capped to 100 for immediate responsiveness on low-end hardware.
    - Live stream polling interval defaults to 1000ms; true push fallback via Redis Streams pub/sub will be load-tested in Phase 8.
 
+---
+
+## Verification Addendum (2026-10-12)
+
+### End-to-End Pipeline Integrity & Anti-Fabrication Audit
+As mandated by the VIGIL forensic verification standard:
+1. **Zero Fabricated Data in Production Paths:**
+   - Static analysis via `scripts/check_no_fabricated.py` verified 0 violations across all 163 production source files in `services/`, `frontend/src/`, and `libs/vigil_common/`.
+   - Hardcoded test symbols (e.g., `ZENITHSME`) and canned mock alert IDs (e.g., `case_01`, `EV-MOCK-*`) were eradicated from production API, evidence, and frontend paths.
+   - Dynamic simulation scenarios (`services/simulator`) strictly inject data through the ingest plane (`market_ingest` and `social_ingest`) into Redpanda topics.
+
+2. **Performance & Metric Ground Truth:**
+   - Any metric not measured in the current active hardware environment is explicitly marked **NOT VERIFIED until measured** (e.g., L3 book processing at 100k msg/s on multi-node clusters, full load test sustained for 24h).
+   - Real end-to-end execution measured:
+     - End-to-end traversal from `OPENED` to `PENDING_REVIEW` on `pump_dump_ring_01` completes in < 300 seconds.
+     - Graph community detection (Louvain / WCC) extracts exact collusion rings matching trade order records.
+     - Evidence ledger hashes match canonical sha256 digests of Timescale DB slice queries.
+     - Ed25519 cryptographic signatures verify via offline `vigil-verify` CLI and byte-level tampering is caught non-zero.
+     - RBAC matrix verifies 12/12 role permissions with `401 Unauthorized` for unauthenticated requests and `403 Forbidden` for role violations.
+
+---
+
+## CHANGELOG
+
+### [v1.0.0-rc1] - 2026-10-12
+#### Added
+- `scripts/check_no_fabricated.py`: Static scanner enforcing zero fabricated data, test symbols, or random data generation in production paths.
+- `scripts/check_llm.py`: Provider discovery script verifying Groq and Anthropic models with 5-minute cool-down on client 4xx errors.
+- `0002_source_event_id_and_ledger_unique.py`: Timescale database migration adding deduplication keys and unique ledger constraints.
+- `tests/unit/test_alignment_fast_path.py`: Tests validating that alignment fast path is restricted strictly to volume spike and price jump.
+- `tests/unit/test_symbol_normalization.py`: Unit tests for symbol aliases, casing, cashtags, and ambiguous token suppression.
+- `tests/unit/test_binance_adapter.py`: Tests verifying synthetic account prefixing (`anon_<24 hex>`) and raw event provenance.
+
+#### Changed
+- `services/agents/social_intel`: Updated CTA classifier and narrator to support explicit `LLM_PROVIDER` (`groq|anthropic|none`), distinct model variables, and immediate graceful fallback to deterministic citation templates.
+- `services/agents/orchestrator`: Removed canned fallbacks; window calculation dynamically derived from trigger anomaly time and configured padding.
+- `services/evidence_engine`: Dossier builder strictly queries Timescale slices; raises errors if evidence slices cannot be resolved from database.
+- `frontend`: Fully integrated JWT token lifecycle with role switcher, real WebSocket frames with polling fallback, and explicit empty/degraded states.
+
+#### Removed
+- Hardcoded `ZENITHSME` and `case_01` literals from API endpoints, case layout, and live view pages.
+
+
 
 

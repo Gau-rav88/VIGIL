@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { fetchTickers, fetchAlerts, fetchCases, fetchCaseSeries, TickerData, AlertData, CaseData } from "@/lib/api";
+import { fetchTickers, fetchAlerts, fetchCases, fetchCaseSeries, fetchSymbolSeries, TickerData, AlertData, CaseData } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import { Tape } from "@/components/Tape/Tape";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
-import { CaseSeries } from "@/lib/types";
+import { CaseSeries, normalizeCaseSeries } from "@/lib/types";
 import {
   Activity,
   ShieldAlert,
@@ -23,7 +23,7 @@ export default function LiveWatchFloorPage() {
   const [tickers, setTickers] = useState<TickerData[]>([]);
   const [alerts, setAlerts] = useState<AlertData[]>([]);
   const [cases, setCases] = useState<CaseData[]>([]);
-  const [selectedSymbol, setSelectedSymbol] = useState<string>("ZENITHSME");
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
   const [miniSeries, setMiniSeries] = useState<CaseSeries | null>(null);
   const [loading, setLoading] = useState(true);
   const [newAlertIds, setNewAlertIds] = useState<Set<string>>(new Set());
@@ -37,6 +37,9 @@ export default function LiveWatchFloorPage() {
       ]);
       setTickers(tList);
       setCases(cList);
+      if (tList.length > 0) {
+        setSelectedSymbol((prev) => prev || tList[0].symbol);
+      }
 
       // Detect new alerts to trigger 600ms tag-wash flash
       if (alerts.length > 0) {
@@ -61,23 +64,30 @@ export default function LiveWatchFloorPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch mini-tape series for selected symbol
+  // Fetch mini-tape series for selected symbol (matching case or symbol series)
   useEffect(() => {
     async function loadMiniTape() {
-      // Find matching case or default to first case
-      const matchingCase = cases.find((c) => c.symbol === selectedSymbol) || cases[0];
+      if (!selectedSymbol) return;
+      const matchingCase = cases.find((c) => c.symbol === selectedSymbol);
       if (matchingCase) {
         try {
           const s = await fetchCaseSeries(matchingCase.case_id);
-          setMiniSeries(s);
+          if (s && s.bars && s.bars.length > 0) {
+            setMiniSeries(normalizeCaseSeries(s, selectedSymbol));
+            return;
+          }
         } catch {
-          // fallback
+          // fallback to symbol series
         }
       }
+      try {
+        const s = await fetchSymbolSeries(selectedSymbol);
+        setMiniSeries(normalizeCaseSeries(s, selectedSymbol));
+      } catch {
+        // fallback
+      }
     }
-    if (cases.length > 0) {
-      loadMiniTape();
-    }
+    loadMiniTape();
   }, [selectedSymbol, cases]);
 
   // Sort tickers by risk (MRS) descending
@@ -169,9 +179,11 @@ export default function LiveWatchFloorPage() {
                       </div>
 
                       <div className="flex items-center space-x-3 font-mono text-[11px]">
-                        <span className="text-ink-muted">Hype: {riskVal > 60 ? "88" : "22"}</span>
                         <span className="text-ink-muted">
-                          Vol z: {riskVal > 60 ? "9.7" : "1.2"}
+                          Hype: {Math.round(t.hype ?? (riskVal * 0.8))}
+                        </span>
+                        <span className="text-ink-muted">
+                          Vol z: {(t.volume_z ?? (t.mrs * 3)).toFixed(1)}σ
                         </span>
                         <strong
                           className={`px-1.5 py-0.5 rounded-cell font-mono text-xs ${
@@ -245,15 +257,23 @@ export default function LiveWatchFloorPage() {
             <div className="grid grid-cols-3 gap-2 text-xs font-mono">
               <div className="bg-bg-sunken p-2 rounded-cell border border-line">
                 <span className="text-[10px] text-ink-muted font-sans block">Hype</span>
-                <span className="font-bold text-social">88 / 100</span>
+                <span className="font-bold text-social">
+                  {Math.round(selectedTickerData?.hype ?? ((selectedTickerData?.mrs ?? 0) * 80))} / 100
+                </span>
               </div>
               <div className="bg-bg-sunken p-2 rounded-cell border border-line">
                 <span className="text-[10px] text-ink-muted font-sans block">Volume z</span>
-                <span className="font-bold text-ink">9.7σ</span>
+                <span className="font-bold text-ink">
+                  {selectedTickerData?.volume_z != null
+                    ? `${selectedTickerData.volume_z}σ`
+                    : `${((selectedTickerData?.mrs ?? 0) * 3).toFixed(1)}σ`}
+                </span>
               </div>
               <div className="bg-bg-sunken p-2 rounded-cell border border-line">
-                <span className="text-[10px] text-ink-muted font-sans block">Spread</span>
-                <span className="font-bold text-ink">2.3×</span>
+                <span className="text-[10px] text-ink-muted font-sans block">Price / Chg</span>
+                <span className={`font-bold ${(selectedTickerData?.change_pct ?? 0) >= 0 ? "text-verified" : "text-seal"}`}>
+                  ₹{(selectedTickerData?.price ?? 0).toFixed(2)} ({(selectedTickerData?.change_pct ?? 0) >= 0 ? "+" : ""}{(selectedTickerData?.change_pct ?? 0)}%)
+                </span>
               </div>
             </div>
 

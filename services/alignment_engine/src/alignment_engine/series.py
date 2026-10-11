@@ -9,6 +9,7 @@ Builds 1-second grid arrays for:
 from __future__ import annotations
 
 import datetime
+import os
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -17,11 +18,11 @@ from numpy.typing import NDArray
 if TYPE_CHECKING:
     import asyncpg
 
-# Seconds to look back for series assembly
-ALIGN_LOOKBACK_S = 3600
-# Watermark: ignore events more than this many seconds late relative to now
+# Configuration from env with documented defaults
+ALIGN_LOOKBACK_S = int(os.getenv("ALIGN_LOOKBACK_S", "1800"))
+ALIGN_INTERVAL_S = int(os.getenv("ALIGN_INTERVAL_S", "60"))
+ALIGN_MIN_OBS = int(os.getenv("ALIGN_MIN_OBS", "30"))
 WATERMARK_S = 30
-# Detrend window for volume (5-minute rolling median)
 DETREND_WINDOW_S = 300
 
 
@@ -30,11 +31,13 @@ async def fetch_series(
     symbol: str,
     now_ts: float,
     lookback_s: int = ALIGN_LOOKBACK_S,
-) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
+    min_obs: int = ALIGN_MIN_OBS,
+) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], bool]:
     """Fetch h, v, a, spread_rel as 1-s grid arrays over [now_ts - lookback_s, now_ts].
 
-    Returns four arrays of length `lookback_s`, each indexed t=0 (oldest) … t=n-1 (newest).
-    Missing values are filled with 0.0 (safe sentinel for all components).
+    Returns four arrays of length `lookback_s`, each indexed t=0 (oldest) … t=n-1 (newest),
+    along with `is_sufficient` boolean indicating whether both h and v have at least min_obs
+    non-empty observations with non-zero variance.
     """
     t_start = now_ts - lookback_s - WATERMARK_S  # allow late data within watermark
     t_end = now_ts
@@ -124,7 +127,13 @@ async def fetch_series(
             if v_val is not None:
                 spread_rel[idx] = float(v_val)
 
-    return h, v, a, spread_rel
+    h_obs = int(np.count_nonzero(h))
+    v_obs = int(np.count_nonzero(v_raw))
+    h_var = float(np.var(h))
+    v_var = float(np.var(v_raw))
+    is_sufficient = bool(h_obs >= min_obs and v_obs >= min_obs and h_var > 1e-9 and v_var > 1e-9)
+
+    return h, v, a, spread_rel, is_sufficient
 
 
 def _ffill(arr: NDArray[np.float64]) -> None:
@@ -155,8 +164,8 @@ def _detrend_rolling_median(arr: NDArray[np.float64], window: int) -> NDArray[np
         start = max(0, i - window + 1)
         med = np.median(arr[start : i + 1])
         out[i] = arr[i] - med
-    # Robust-z: divide by MAD * 1.4826
+    # Robust-z: divide by MAD * 1.4826, fall back to sample std if MAD is 0 on sparse data
     mad = np.median(np.abs(out - np.median(out)))
-    sigma = max(mad * 1.4826, 1e-9)
+    sigma = mad * 1.4826 if mad > 1e-4 else max(float(np.std(out)), 1e-4)
     res: NDArray[np.float64] = np.asarray(out / sigma, dtype=np.float64)
     return res

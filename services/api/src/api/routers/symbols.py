@@ -1,87 +1,131 @@
 from __future__ import annotations
 
 import datetime
-import random
+import logging
 from typing import Any
 
 from api.auth import User, require_roles
 from api.deps import get_pool
+from api.errors import ProblemException
 from fastapi import APIRouter, Depends, Query
 
-router = APIRouter(prefix="/api/v1/symbols", tags=["symbols"])
-
-LARGE_MID_SYMBOLS = [
-    "RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "TATAMOTORS", "BHARTIARTL",
-    "ITC", "SBIN", "LICI", "HINDUNILVR", "LT", "BAJFINANCE", "MARUTI", "SUNPHARMA",
-    "TITAN", "KOTAKBANK", "ADANIENT", "AXISBANK", "NTPC", "ONGC", "POWERGRID",
-    "TATASTEEL", "ULTRACEMCO", "M&M", "COALINDIA", "BAJAJFINSV", "WIPRO", "HCLTECH", "ACMESYSTEMS"
-]
-
-MICRO_SME_SYMBOLS = [
-    "ZENITHSME", "MICROTECH", "ALPHASME", "SOLARIS", "NOVAPHARMA",
-    "NEXUSSME", "PRISMIND", "VORTEXSME", "STELLARSME", "APEXSME"
-]
+logger = logging.getLogger("api.symbols")
+router = APIRouter(prefix="/api/v1", tags=["symbols"])
 
 
-@router.get("/heatmap")
+@router.get("/symbols/heatmap")
+@router.get("/live/tickers")
 async def get_symbols_heatmap(
     user: User = Depends(require_roles("investigator", "compliance_officer", "admin", "auditor_readonly")),
 ) -> dict[str, Any]:
-    open_cases = set()
     pool = get_pool()
-    if pool:
-        try:
-            async with pool.acquire() as conn:
-                rows = await conn.fetch("SELECT DISTINCT symbol FROM vigil.cases WHERE status IN ('OPENED', 'PENDING_REVIEW', 'PUBLISHED');")
-                for r in rows:
-                    open_cases.add(r["symbol"])
-        except Exception:
-            pass
+    if pool is None:
+        raise ProblemException(
+            status_code=503,
+            title="Service Unavailable",
+            detail="Database connection pool is not available",
+            type_uri="https://api.vigil.dev/errors/dependency-failure",
+        )
 
-    tickers: list[dict[str, Any]] = []
-    rng = random.Random(42)
+    try:
+        async with pool.acquire() as conn:
+            # Query distinct symbols with activity in trades
+            symbol_rows = await conn.fetch("SELECT DISTINCT symbol FROM vigil.trades ORDER BY symbol;")
+            if not symbol_rows:
+                return {"items": [], "total": 0, "state": "EMPTY"}
 
-    for sym in LARGE_MID_SYMBOLS:
-        is_case = sym in open_cases
-        base = round(rng.uniform(450, 3100), 2)
-        mrs = round(rng.uniform(0.01, 0.12), 3) if not is_case else 0.88
-        tickers.append({
-            "symbol": sym,
-            "tier": "LARGE_MID",
-            "price": base,
-            "change_pct": round(rng.uniform(-2.5, 3.2), 2),
-            "volume_24h": rng.randint(450000, 3500000),
-            "mrs": mrs,
-            "hype": round(mrs * 40.0, 1),
-            "volume_z": round(mrs * 2.5, 2),
-            "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "status": "MANIPULATION_DETECTED" if is_case else ("ELEVATED" if mrs > 0.4 else "NORMAL"),
-            "flags": ["RING_DETECTED", "HYPE_BURST"] if is_case else []
-        })
+            open_case_rows = await conn.fetch(
+                "SELECT DISTINCT symbol FROM vigil.cases WHERE status IN ('OPENED', 'PENDING_REVIEW', 'PUBLISHED');"
+            )
+            open_cases = {r["symbol"] for r in open_case_rows}
 
-    for sym in MICRO_SME_SYMBOLS:
-        is_case = sym in open_cases or sym == "ZENITHSME"
-        base = round(rng.uniform(35, 180), 2)
-        mrs = 0.94 if is_case else round(rng.uniform(0.04, 0.19), 3)
-        flags = ["CIRCULAR_CYCLE", "CROSS_MODAL_SPIKE", "TELEGRAM_CTA"] if is_case else []
-        tickers.append({
-            "symbol": sym,
-            "tier": "MICRO_SME",
-            "price": base if not is_case else 142.50,
-            "change_pct": round(rng.uniform(-3.5, 4.5), 2) if not is_case else 18.4,
-            "volume_24h": rng.randint(80000, 420000) if not is_case else 1250000,
-            "mrs": mrs,
-            "hype": 88.5 if is_case else round(mrs * 50.0, 1),
-            "volume_z": 4.8 if is_case else round(mrs * 2.0, 2),
-            "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "status": "MANIPULATION_DETECTED" if is_case else ("ELEVATED" if mrs > 0.4 else "NORMAL"),
-            "flags": flags
-        })
+            tickers: list[dict[str, Any]] = []
 
-    return {"items": tickers, "total": len(tickers)}
+            for srow in symbol_rows:
+                sym = srow["symbol"]
+                is_case = sym in open_cases
+
+                # Latest trade price and earliest in recent 24h
+                price_rows = await conn.fetch(
+                    """
+                    SELECT price, ts, qty FROM vigil.trades
+                    WHERE symbol = $1
+                    ORDER BY ts DESC LIMIT 1000;
+                    """,
+                    sym,
+                )
+
+                if price_rows:
+                    latest_price = float(price_rows[0]["price"])
+                    earliest_price = float(price_rows[-1]["price"])
+                    change_pct = round(((latest_price - earliest_price) / earliest_price) * 100, 2) if earliest_price > 0 else 0.0
+                    total_vol = sum(float(r["qty"]) for r in price_rows)
+                    latest_ts = price_rows[0]["ts"].isoformat()
+                else:
+                    latest_price = 0.0
+                    change_pct = 0.0
+                    total_vol = 0.0
+                    latest_ts = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+                # Latest MRS
+                mrs_row = await conn.fetchrow(
+                    "SELECT mrs FROM vigil.mrs_1m WHERE symbol = $1 ORDER BY ts DESC LIMIT 1;",
+                    sym,
+                )
+                mrs = float(mrs_row["mrs"]) if mrs_row and mrs_row["mrs"] is not None else 0.0
+
+                # Latest Hype
+                hype_row = await conn.fetchrow(
+                    "SELECT hype_score FROM vigil.hype_scores WHERE ticker = $1 ORDER BY ts DESC LIMIT 1;",
+                    sym,
+                )
+                hype = float(hype_row["hype_score"]) if hype_row and hype_row["hype_score"] is not None else 0.0
+
+                # Open anomalies for flags
+                anom_rows = await conn.fetch(
+                    "SELECT type FROM vigil.anomalies WHERE symbol = $1 ORDER BY detected_at DESC LIMIT 5;",
+                    sym,
+                )
+                flags = list({str(r["type"]) for r in anom_rows})
+
+                # Status thresholds per PRD
+                if is_case or mrs >= 0.70:
+                    status_val = "MANIPULATION_DETECTED"
+                elif mrs >= 0.40 or bool(flags):
+                    status_val = "ELEVATED"
+                else:
+                    status_val = "NORMAL"
+
+                tier = "CRYPTO" if "USDT" in sym else ("MICRO_SME" if "SME" in sym else "LARGE_MID")
+
+                tickers.append({
+                    "symbol": sym,
+                    "tier": tier,
+                    "price": latest_price,
+                    "change_pct": change_pct,
+                    "volume_24h": total_vol,
+                    "mrs": mrs,
+                    "hype": hype,
+                    "volume_z": round(mrs * 3.0, 2),
+                    "ts": latest_ts,
+                    "status": status_val,
+                    "flags": flags,
+                })
+
+            state = "READY" if tickers else "EMPTY"
+            return {"items": tickers, "total": len(tickers), "state": state}
+
+    except Exception as exc:
+        logger.error("Failed querying symbols heatmap from database", exc_info=True)
+        raise ProblemException(
+            status_code=503,
+            title="Database Error",
+            detail="Failed to query symbols heatmap from TimescaleDB",
+            type_uri="https://api.vigil.dev/errors/database-error",
+        ) from exc
 
 
-@router.get("/{symbol}/series")
+@router.get("/symbols/{symbol}/series")
 async def get_symbol_series(
     symbol: str,
     from_ts: str | None = Query(default=None, alias="from"),
@@ -89,52 +133,118 @@ async def get_symbol_series(
     res: str = "5s",
     user: User = Depends(require_roles("investigator", "compliance_officer", "admin", "auditor_readonly")),
 ) -> dict[str, Any]:
-    # Returns aligned series: bars, hype, l2_metrics, mrs
-    base_time = datetime.datetime.now(datetime.timezone.utc)
-    hype_series = []
-    bars_series = []
-    l2_metrics = []
-    mrs_series = []
+    pool = get_pool()
+    if pool is None:
+        raise ProblemException(
+            status_code=503,
+            title="Service Unavailable",
+            detail="Database connection pool is not available",
+            type_uri="https://api.vigil.dev/errors/dependency-failure",
+        )
 
-    price = 120.0
-    for i in range(60):
-        t = (base_time - datetime.timedelta(seconds=(60 - i) * 5)).isoformat()
-        # Coordinated jump simulation near the end
-        if i > 40:
-            hype = min(95.0, 30.0 + (i - 40) * 3.2)
-            vol = 45000 + (i - 40) * 12000
-            price += 0.85
-            mrs = min(0.98, 0.20 + (i - 40) * 0.04)
-        else:
-            hype = max(5.0, 20.0 + (i % 5) * 2.0)
-            vol = 12000 + (i % 7) * 1500
-            price += 0.05 * ((i % 3) - 1)
-            mrs = 0.12
+    try:
+        async with pool.acquire() as conn:
+            # Query Trades for Bars
+            trade_query = "SELECT ts, price, qty FROM vigil.trades WHERE symbol = $1"
+            params: list[Any] = [symbol]
+            if from_ts:
+                params.append(from_ts)
+                trade_query += f" AND ts >= ${len(params)}::timestamptz"
+            if to_ts:
+                params.append(to_ts)
+                trade_query += f" AND ts <= ${len(params)}::timestamptz"
+            trade_query += " ORDER BY ts ASC LIMIT 10000;"
 
-        hype_series.append({"t": t, "hype": round(hype, 1)})
-        bars_series.append({
-            "t": t,
-            "open": round(price - 0.2, 2),
-            "high": round(price + 0.4, 2),
-            "low": round(price - 0.3, 2),
-            "close": round(price, 2),
-            "volume": vol,
-        })
-        l2_metrics.append({
-            "t": t,
-            "spread_bps": 4.5,
-            "depth_ratio": 1.2,
-            "imbalance": 0.65 if i > 40 else 0.05,
-        })
-        mrs_series.append({"t": t, "mrs": round(mrs, 3)})
+            trade_rows = await conn.fetch(trade_query, *params)
 
-    return {
-        "symbol": symbol,
-        "from": from_ts,
-        "to": to_ts,
-        "res": res,
-        "hype": hype_series,
-        "bars": bars_series,
-        "l2_metrics": l2_metrics,
-        "mrs": mrs_series,
-    }
+            bars_series: list[dict[str, Any]] = []
+            if trade_rows:
+                # Group trades into 5-second or 1-minute buckets
+                buckets: dict[str, list[dict[str, float]]] = {}
+                for tr in trade_rows:
+                    dt = tr["ts"]
+                    # 5s quantization
+                    sec = (dt.second // 5) * 5
+                    b_dt = dt.replace(second=sec, microsecond=0)
+                    k = b_dt.isoformat()
+                    if k not in buckets:
+                        buckets[k] = []
+                    buckets[k].append({"p": float(tr["price"]), "q": float(tr["qty"])})
+
+                for k, pts in buckets.items():
+                    prices = [p["p"] for p in pts]
+                    bars_series.append({
+                        "t": k,
+                        "open": prices[0],
+                        "high": max(prices),
+                        "low": min(prices),
+                        "close": prices[-1],
+                        "volume": sum(p["q"] for p in pts),
+                    })
+
+            # Query Hype scores
+            hype_query = "SELECT ts, hype_score FROM vigil.hype_scores WHERE ticker = $1"
+            h_params: list[Any] = [symbol]
+            if from_ts:
+                h_params.append(from_ts)
+                hype_query += f" AND ts >= ${len(h_params)}::timestamptz"
+            if to_ts:
+                h_params.append(to_ts)
+                hype_query += f" AND ts <= ${len(h_params)}::timestamptz"
+            hype_query += " ORDER BY ts ASC LIMIT 1000;"
+            hype_rows = await conn.fetch(hype_query, *h_params)
+            hype_series = [{"t": r["ts"].isoformat(), "hype": float(r["hype_score"])} for r in hype_rows]
+
+            # Query L2 metrics
+            l2_query = "SELECT ts, rel_spread, depth_imbalance FROM vigil.l2_metrics_1s WHERE symbol = $1"
+            l2_params: list[Any] = [symbol]
+            if from_ts:
+                l2_params.append(from_ts)
+                l2_query += f" AND ts >= ${len(l2_params)}::timestamptz"
+            if to_ts:
+                l2_params.append(to_ts)
+                l2_query += f" AND ts <= ${len(l2_params)}::timestamptz"
+            l2_query += " ORDER BY ts ASC LIMIT 1000;"
+            l2_rows = await conn.fetch(l2_query, *l2_params)
+            l2_metrics = [
+                {
+                    "t": r["ts"].isoformat(),
+                    "spread_bps": float(r["rel_spread"] or 0.0) * 10000.0,
+                    "depth_ratio": 1.0,
+                    "imbalance": float(r["depth_imbalance"] or 0.0),
+                }
+                for r in l2_rows
+            ]
+
+            # Query MRS series
+            mrs_query = "SELECT ts, mrs FROM vigil.mrs_1m WHERE symbol = $1"
+            m_params: list[Any] = [symbol]
+            if from_ts:
+                m_params.append(from_ts)
+                mrs_query += f" AND ts >= ${len(m_params)}::timestamptz"
+            if to_ts:
+                m_params.append(to_ts)
+                mrs_query += f" AND ts <= ${len(m_params)}::timestamptz"
+            mrs_query += " ORDER BY ts ASC LIMIT 1000;"
+            mrs_rows = await conn.fetch(mrs_query, *m_params)
+            mrs_series = [{"t": r["ts"].isoformat(), "mrs": float(r["mrs"])} for r in mrs_rows]
+
+            return {
+                "symbol": symbol,
+                "from": from_ts,
+                "to": to_ts,
+                "res": res,
+                "hype": hype_series,
+                "bars": bars_series,
+                "l2_metrics": l2_metrics,
+                "mrs": mrs_series,
+            }
+
+    except Exception as exc:
+        logger.error(f"Failed querying symbol series for {symbol} from database", exc_info=True)
+        raise ProblemException(
+            status_code=503,
+            title="Database Error",
+            detail="Failed to query symbol series from TimescaleDB",
+            type_uri="https://api.vigil.dev/errors/database-error",
+        ) from exc

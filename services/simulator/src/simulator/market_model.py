@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -49,9 +50,12 @@ class MarketModel:
         self,
         rng: np.random.Generator,
         scenario_cfg: dict[str, Any] | None = None,
+        base_dt: datetime.datetime | None = None,
     ) -> None:
         self.rng = rng
         self.scenario_cfg = scenario_cfg or {}
+        self.run_id = str(self.scenario_cfg.get("run_id") or "")
+        self.base_dt = base_dt or datetime.datetime(2026, 3, 14, 4, 30, 0, tzinfo=datetime.timezone.utc)
         self.organic_accounts = self._init_organic_accounts(2000)
         self.symbols_state: dict[str, SymbolState] = {}
         self.ring_spec: RingSpec | None = build_ring(self.scenario_cfg, self.rng)
@@ -102,7 +106,7 @@ class MarketModel:
                 current_mid=base_p,
                 tps=tps,
                 sigma=0.015,
-                book=OrderBook(symbol=sym),
+                book=OrderBook(symbol=sym, run_id=self.run_id),
             )
 
         # 10 Micro / SME
@@ -116,7 +120,7 @@ class MarketModel:
                 current_mid=base_p,
                 tps=tps,
                 sigma=0.03,
-                book=OrderBook(symbol=sym),
+                book=OrderBook(symbol=sym, run_id=self.run_id),
             )
 
         # Override target if specified in scenario
@@ -151,6 +155,7 @@ class MarketModel:
             acc_ask = self.organic_accounts[self.rng.integers(0, len(self.organic_accounts))]
             qty = int(self.rng.integers(50, 500) * 10)
 
+            seed_ts = (self.base_dt - datetime.timedelta(minutes=30)).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
             self.order_counter += 1
             state.book.add_order(
                 order_id=f"O-SEED-B-{self.order_counter}",
@@ -159,7 +164,7 @@ class MarketModel:
                 qty=qty,
                 account_id=acc_bid.account_id,
                 broker_id=acc_bid.broker_id,
-                ts_exchange="2026-03-14T04:00:00.000000Z",
+                ts_exchange=seed_ts,
                 gateway_id=acc_bid.gateway_id,
                 device_fp=acc_bid.device_fp,
                 ip_hash=acc_bid.ip_hash,
@@ -173,7 +178,7 @@ class MarketModel:
                 qty=qty,
                 account_id=acc_ask.account_id,
                 broker_id=acc_ask.broker_id,
-                ts_exchange="2026-03-14T04:00:00.000000Z",
+                ts_exchange=seed_ts,
                 gateway_id=acc_ask.gateway_id,
                 device_fp=acc_ask.device_fp,
                 ip_hash=acc_ask.ip_hash,

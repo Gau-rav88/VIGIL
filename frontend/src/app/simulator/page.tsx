@@ -76,7 +76,7 @@ export default function SimulatorPage() {
           <div className="p-5 rounded-panel bg-bg-raised border border-line space-y-3.5 text-xs shadow-sm">
             <div className="flex justify-between text-ink-muted pb-2 border-b border-line/60">
               <span>Target Symbol:</span>
-              <span className="font-mono font-bold text-ink">ZENITHSME</span>
+              <span className="font-mono font-bold text-ink">{status?.target_symbol || "Dynamic Scenario Target"}</span>
             </div>
             <div className="flex justify-between text-ink-muted">
               <span>Topology:</span>

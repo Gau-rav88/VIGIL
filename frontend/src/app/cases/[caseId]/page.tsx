@@ -17,7 +17,7 @@ import { Meter } from "@/components/ui/Meter";
 import { Button } from "@/components/ui/Button";
 import { CopyHash } from "@/components/ui/CopyHash";
 import { copy } from "@/lib/copy";
-import { CaseSeries } from "@/lib/types";
+import { CaseSeries, normalizeCaseSeries } from "@/lib/types";
 import {
   RefreshCw,
   GitFork,
@@ -64,7 +64,7 @@ export default function CaseWorkbenchPage() {
           fetchCaseEvidence(caseId),
         ]);
         setCaseData(c);
-        setSeries(s);
+        setSeries(normalizeCaseSeries(s, c?.symbol));
         setAccounts(a.items || []);
         setFlags(f.flags || []);
         setEvidenceItems(e.items || []);
@@ -461,7 +461,7 @@ export default function CaseWorkbenchPage() {
                         <span className="font-semibold text-social">{msg.channel}</span>
                         <span>{msg.time}</span>
                       </div>
-                      <p className="font-sans text-ink text-xs font-medium">"{msg.text}"</p>
+                      <p className="font-sans text-ink text-xs font-medium">&ldquo;{msg.text}&rdquo;</p>
                       <span className="text-[10px] text-ink-faint">Author: {msg.author}</span>
                     </div>
                   ))}

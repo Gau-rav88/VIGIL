@@ -16,6 +16,7 @@ import websockets
 from aiokafka import AIOKafkaProducer
 from dotenv import find_dotenv, load_dotenv
 from vigil_common.logging import get_logger, setup_logging
+from vigil_common.topics import Topics
 
 from market_ingest.binance_adapter import BinanceMarketAdapter
 
@@ -160,7 +161,7 @@ class MarketIngester:
         }
         if self.producer:
             await self.producer.send(
-                topic="dlq.market",
+                topic=Topics.DLQ_MARKET,
                 value=json.dumps(dlq_event).encode("utf-8"),
             )
 
@@ -204,15 +205,15 @@ class MarketIngester:
             try:
                 if kind == "trade":
                     self.val_trade(data)
-                    topic = "market.trades.norm"
+                    topic = Topics.MARKET_TRADES_NORM
                     self.stats["trades"] += 1
                 elif kind == "l2":
                     self.val_l2(data)
-                    topic = "market.l2.norm"
+                    topic = Topics.MARKET_L2_NORM
                     self.stats["l2"] += 1
                 elif kind == "l3":
                     self.val_l3(data)
-                    topic = "market.l3.norm"
+                    topic = Topics.MARKET_L3_NORM
                     self.stats["l3"] += 1
                 else:
                     await self._send_dlq(raw_msg, f"Unrecognized kind: {kind}")
@@ -237,7 +238,7 @@ class MarketIngester:
                     }
                     if self.producer:
                         await self.producer.send(
-                            topic="health.events",
+                            topic=Topics.HEALTH_EVENTS,
                             value=json.dumps(gap_event).encode("utf-8"),
                             key=symbol.encode("utf-8"),
                         )

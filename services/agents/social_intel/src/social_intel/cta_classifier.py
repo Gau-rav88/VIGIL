@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import re
+import time
 from pathlib import Path
 from typing import Any, Literal
 
@@ -71,7 +72,12 @@ class CtaClassifier:
             re.IGNORECASE,
         )
 
-        # LLM Concurrency and timeout bounds (P3-G2)
+        # LLM Provider, Concurrency, and timeout bounds
+        self.provider = os.getenv("LLM_PROVIDER", "none").strip().lower()
+        self.groq_key = os.getenv("GROQ_API_KEY", "").strip()
+        self.anthropic_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+        self._disabled_until = 0.0
+        self._logged_missing_key = False
         self.llm_concurrency = int(os.getenv("LLM_MAX_CONCURRENCY", "8"))
         self.llm_timeout_s = float(os.getenv("LLM_TIMEOUT_S", "2.0"))
         self.semaphore = asyncio.Semaphore(self.llm_concurrency)
@@ -229,12 +235,28 @@ class CtaClassifier:
     ) -> list[dict[str, Any]]:
         """
         Async, concurrency-bounded, timeout-bounded LLM refinement path (P3-T06, P3-G2).
-        Supports GROQ_API_KEY (free high-speed Llama/Qwen) and ANTHROPIC_API_KEY.
-        Falls back seamlessly to classify_fallback if neither key is set or on timeout.
+        Supports GROQ_API_KEY and ANTHROPIC_API_KEY with provider selection.
+        Falls back seamlessly to classify_fallback if disabled, missing key, or on timeout.
         """
-        groq_key = os.getenv("GROQ_API_KEY", "").strip()
-        anthropic_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
-        active_key = groq_key or anthropic_key
+        provider = os.getenv("LLM_PROVIDER", "").strip().lower()
+        if not provider:
+            if os.getenv("ANTHROPIC_API_KEY") or self.anthropic_key:
+                provider = "anthropic"
+            elif os.getenv("GROQ_API_KEY") or self.groq_key:
+                provider = "groq"
+            else:
+                provider = self.provider or "none"
+
+        if provider == "none" or time.time() < self._disabled_until:
+            return [self.classify_fallback(m.get("text", "")) for m in messages]
+
+        if provider == "groq":
+            active_key = os.getenv("GROQ_API_KEY", self.groq_key or "").strip()
+        elif provider == "anthropic":
+            active_key = os.getenv("ANTHROPIC_API_KEY", self.anthropic_key or "").strip()
+        else:
+            return [self.classify_fallback(m.get("text", "")) for m in messages]
+
         if not active_key:
             return [self.classify_fallback(m.get("text", "")) for m in messages]
 
@@ -254,10 +276,18 @@ class CtaClassifier:
         self,
         messages: list[dict[str, Any]],
         api_key: str,
+        provider: str | None = None,
     ) -> list[dict[str, Any]]:
         """
-        Actual API invocation with prompt-injection defense and audit logging.
+        Actual API invocation with prompt-injection defense, cool-down on 4xx, and audit logging.
         """
+        if provider is None:
+            provider = os.getenv("LLM_PROVIDER", "").strip().lower()
+            if not provider:
+                if api_key.startswith("gsk_") or os.getenv("GROQ_API_KEY"):
+                    provider = "groq"
+                else:
+                    provider = "anthropic"
         formatted_msgs = "\n".join(
             f'<message id="{m.get("message_id", idx)}">{m.get("text", "")}</message>'
             for idx, m in enumerate(messages)
@@ -272,9 +302,8 @@ class CtaClassifier:
         try:
             import httpx
 
-            is_groq = api_key.startswith("gsk_") or os.getenv("LLM_PROVIDER") == "groq"
-            if is_groq:
-                model_name = os.getenv("LLM_MODEL", "qwen/qwen3.8-27b")
+            if provider == "groq":
+                model_name = os.getenv("GROQ_MODEL") or os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
                 async with httpx.AsyncClient(timeout=self.llm_timeout_s) as client:
                     resp = await client.post(
                         "https://api.groq.com/openai/v1/chat/completions",
@@ -300,9 +329,14 @@ class CtaClassifier:
                             "max_tokens": 1024,
                         },
                     )
+                    if 400 <= resp.status_code < 500:
+                        self._disabled_until = time.time() + 300.0
+                        return [self.classify_fallback(m.get("text", "")) for m in messages]
+                    resp.raise_for_status()
                     resp_json = resp.json()
                     content_text = resp_json.get("choices", [{}])[0].get("message", {}).get("content", "{}")
-            else:
+            elif provider == "anthropic":
+                model_name = os.getenv("ANTHROPIC_MODEL", "claude-3-haiku-20240307")
                 async with httpx.AsyncClient(timeout=self.llm_timeout_s) as client:
                     resp = await client.post(
                         "https://api.anthropic.com/v1/messages",
@@ -312,13 +346,19 @@ class CtaClassifier:
                             "content-type": "application/json",
                         },
                         json={
-                            "model": os.getenv("LLM_MODEL", "claude-3-haiku-20240307"),
+                            "model": model_name,
                             "max_tokens": 1024,
                             "messages": [{"role": "user", "content": prompt_text}],
                         },
                     )
+                    if 400 <= resp.status_code < 500:
+                        self._disabled_until = time.time() + 300.0
+                        return [self.classify_fallback(m.get("text", "")) for m in messages]
+                    resp.raise_for_status()
                     resp_json = resp.json()
                     content_text = resp_json.get("content", [{}])[0].get("text", "{}")
+            else:
+                return [self.classify_fallback(m.get("text", "")) for m in messages]
 
             resp_sha256 = hashlib.sha256(content_text.encode("utf-8")).hexdigest()
 
