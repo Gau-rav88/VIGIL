@@ -96,3 +96,7 @@ scratch/
 *.sqlite
 *.sqlite3
 *.db
+
+# Antigravity / Workspace Local Agent Customizations
+.agents/
+
