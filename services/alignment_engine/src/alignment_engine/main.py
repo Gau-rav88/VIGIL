@@ -27,6 +27,7 @@ from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from numpy import median, zeros
 from vigil_common.logging import get_logger, setup_logging
 from vigil_common.models.anomaly import AnomalyEvent, EvidenceRef
+from vigil_common.network import resolve_db_dsn, resolve_kafka_bootstrap, resolve_redis_url
 
 from alignment_engine.mrs import MICRO_ANOMALY_TYPES, compute_mrs
 from alignment_engine.series import ALIGN_LOOKBACK_S, fetch_series
@@ -46,12 +47,14 @@ MRS_REDIS_TTL = 120       # TTL for mrs:{symbol} in Redis
 
 class AlignmentEngine:
     def __init__(self) -> None:
-        self.kafka_bootstrap = os.getenv("KAFKA_BOOTSTRAP", "redpanda:9092")
-        self.db_dsn = os.getenv(
-            "TIMESCALE_DSN",
-            "postgresql://vigil:vigil@timescale:5432/vigil",
+        self.kafka_bootstrap = resolve_kafka_bootstrap(os.getenv("KAFKA_BOOTSTRAP", "redpanda:9092"))
+        self.db_dsn = resolve_db_dsn(
+            os.getenv(
+                "TIMESCALE_DSN",
+                "postgresql://vigil:vigil@timescale:5432/vigil",
+            )
         )
-        self.redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+        self.redis_url = resolve_redis_url(os.getenv("REDIS_URL", "redis://redis:6379/0"))
         self.consumer: AIOKafkaConsumer | None = None
         self.producer: AIOKafkaProducer | None = None
         self.db_pool: Any = None

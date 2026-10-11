@@ -4,7 +4,6 @@ import asyncio
 import datetime
 from typing import Any, AsyncGenerator
 
-import discord
 from vigil_common.logging import get_logger
 
 logger = get_logger("discord_connector")
@@ -23,10 +22,16 @@ class DiscordConnector:
         self.channel_ids = {c.strip() for c in (channel_ids or []) if c.strip()}
         self.queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=10000)
         self.running = False
-        self.client: discord.Client | None = None
+        self.client: Any = None
         self.bot_task: asyncio.Task[None] | None = None
 
     async def start(self) -> AsyncGenerator[dict[str, Any], None]:
+        try:
+            import discord
+        except ImportError:
+            logger.warning("discord.py is not installed in this environment. Skipping Discord live connector.")
+            return
+
         self.running = True
         intents = discord.Intents.default()
         intents.message_content = True

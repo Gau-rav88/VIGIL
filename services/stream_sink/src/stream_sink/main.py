@@ -12,6 +12,7 @@ from typing import Any
 import asyncpg
 from aiokafka import AIOKafkaConsumer
 from vigil_common.logging import get_logger, setup_logging
+from vigil_common.network import resolve_db_dsn, resolve_kafka_bootstrap
 
 logger = get_logger("stream_sink")
 
@@ -29,8 +30,8 @@ def parse_dt(val: str | None) -> datetime.datetime:
 
 class StreamSink:
     def __init__(self) -> None:
-        self.kafka_bootstrap = os.getenv("KAFKA_BOOTSTRAP", "redpanda:9092")
-        self.pg_dsn = os.getenv("PG_DSN", "postgresql://vigil:vigil@timescale:5432/vigil")
+        self.kafka_bootstrap = resolve_kafka_bootstrap(os.getenv("KAFKA_BOOTSTRAP", "redpanda:9092"))
+        self.pg_dsn = resolve_db_dsn(os.getenv("PG_DSN", "postgresql://vigil:vigil@timescale:5432/vigil"))
         self.pool: asyncpg.Pool | None = None
         self.consumer: AIOKafkaConsumer | None = None
         self.running = False

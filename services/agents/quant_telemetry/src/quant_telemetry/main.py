@@ -8,6 +8,7 @@ import signal
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from vigil_common.logging import get_logger, setup_logging
 from vigil_common.models.anomaly import AnomalyEvent
+from vigil_common.network import resolve_kafka_bootstrap
 
 from .engine import QuantTelemetryEngine
 
@@ -16,7 +17,7 @@ logger = get_logger("quant_telemetry")
 
 class QuantTelemetryService:
     def __init__(self) -> None:
-        self.kafka_bootstrap = os.getenv("KAFKA_BOOTSTRAP", "redpanda:9092")
+        self.kafka_bootstrap = resolve_kafka_bootstrap(os.getenv("KAFKA_BOOTSTRAP", "redpanda:9092"))
         self.consumer: AIOKafkaConsumer | None = None
         self.producer: AIOKafkaProducer | None = None
         self.engine = QuantTelemetryEngine()

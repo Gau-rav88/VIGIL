@@ -14,6 +14,7 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.types import Command
 from neo4j import AsyncGraphDatabase
 from vigil_common.logging import get_logger, setup_logging
+from vigil_common.network import resolve_db_dsn, resolve_kafka_bootstrap, resolve_neo4j_uri
 
 from orchestrator.bus import AgentToolBus
 from orchestrator.graph import build_graph
@@ -25,9 +26,9 @@ logger = get_logger("orchestrator")
 
 class CaseOrchestrator:
     def __init__(self) -> None:
-        self.kafka_bootstrap = os.getenv("KAFKA_BOOTSTRAP", "redpanda:9092")
-        self.pg_dsn = os.getenv("PG_DSN", "postgresql://vigil:vigil@timescale:5432/vigil")
-        self.neo4j_uri = os.getenv("NEO4J_URI", "bolt://neo4j:7687")
+        self.kafka_bootstrap = resolve_kafka_bootstrap(os.getenv("KAFKA_BOOTSTRAP", "redpanda:9092"))
+        self.pg_dsn = resolve_db_dsn(os.getenv("PG_DSN", "postgresql://vigil:vigil@timescale:5432/vigil"))
+        self.neo4j_uri = resolve_neo4j_uri(os.getenv("NEO4J_URI", "bolt://neo4j:7687"))
         self.neo4j_user = os.getenv("NEO4J_USER", "neo4j")
         self.neo4j_password = os.getenv("NEO4J_PASSWORD", "vigilneo4j")
 
