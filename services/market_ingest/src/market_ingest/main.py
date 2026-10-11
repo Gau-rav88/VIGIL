@@ -7,16 +7,30 @@ import datetime
 import json
 import os
 import signal
+import socket
 from pathlib import Path
 
 import fastjsonschema
 import websockets
 from aiokafka import AIOKafkaProducer
+from dotenv import load_dotenv
 from vigil_common.logging import get_logger, setup_logging
 
 from market_ingest.binance_adapter import BinanceMarketAdapter
 
+load_dotenv()
+
 logger = get_logger("market_ingest")
+
+
+def resolve_kafka_bootstrap(bootstrap: str) -> str:
+    host, _, _ = bootstrap.partition(":")
+    if host == "redpanda":
+        try:
+            socket.gethostbyname("redpanda")
+        except socket.gaierror:
+            return f"localhost:{os.getenv('KAFKA_EXTERNAL_PORT', '19092')}"
+    return bootstrap
 
 
 def find_schemas_dir() -> Path:
@@ -36,7 +50,7 @@ class MarketIngester:
         self.adapter_type = os.getenv("MARKET_ADAPTER", "websocket").lower()
         self.binance_symbols = [s.strip() for s in os.getenv("BINANCE_SYMBOLS", "BTCUSDT,ETHUSDT,SOLUSDT").split(",") if s.strip()]
         self.ws_url = os.getenv("MARKET_WS_URL", "ws://simulator:8090/ws/market")
-        self.kafka_bootstrap = os.getenv("KAFKA_BOOTSTRAP", "redpanda:9092")
+        self.kafka_bootstrap = resolve_kafka_bootstrap(os.getenv("KAFKA_BOOTSTRAP", "redpanda:9092"))
         self.keep_scenario_labels = os.getenv("KEEP_SCENARIO_LABELS", "false").lower() == "true"
         self.high_watermark = int(os.getenv("INGEST_QUEUE_HIGH_WATERMARK", "50000"))
         self.producer: AIOKafkaProducer | None = None

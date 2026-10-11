@@ -8,10 +8,12 @@ import hashlib
 import json
 import os
 import signal
+import socket
 from typing import Any
 
 import websockets
 from aiokafka import AIOKafkaProducer
+from dotenv import load_dotenv
 from vigil_common.logging import get_logger, setup_logging
 from vigil_common.models.social import SocialMessage
 from vigil_common.pseudonym import pseudonymize
@@ -20,14 +22,26 @@ from social_ingest.connectors.discord_connector import DiscordConnector
 from social_ingest.connectors.reddit_connector import RedditConnector
 from social_ingest.connectors.telegram_connector import TelegramConnector
 
+load_dotenv()
+
 logger = get_logger("social_ingest")
+
+
+def resolve_kafka_bootstrap(bootstrap: str) -> str:
+    host, _, _ = bootstrap.partition(":")
+    if host == "redpanda":
+        try:
+            socket.gethostbyname("redpanda")
+        except socket.gaierror:
+            return f"localhost:{os.getenv('KAFKA_EXTERNAL_PORT', '19092')}"
+    return bootstrap
 
 
 class SocialIngester:
     def __init__(self) -> None:
         self.adapter_type = os.getenv("SOCIAL_ADAPTER", "synthetic_ws").lower()
         self.ws_url = os.getenv("SOCIAL_WS_URL", "ws://simulator:8090/ws/social")
-        self.kafka_bootstrap = os.getenv("KAFKA_BOOTSTRAP", "redpanda:9092")
+        self.kafka_bootstrap = resolve_kafka_bootstrap(os.getenv("KAFKA_BOOTSTRAP", "redpanda:9092"))
         self.pepper = os.getenv("PSEUDONYM_PEPPER", "change-me-dev-pepper-32bytes-min")
         self.keep_scenario_labels = os.getenv("KEEP_SCENARIO_LABELS", "false").lower() == "true"
         self.producer: AIOKafkaProducer | None = None
