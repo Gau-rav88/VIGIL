@@ -1,9 +1,15 @@
-.PHONY: up down nuke logs migrate schemas lint test test-int smoke scenario load-test chaos verify
+.PHONY: up down nuke logs migrate schemas lint test test-int smoke scenario load-test chaos verify market social
 
 up:
 	@./scripts/gen_dev_keys.sh
 	@docker compose up -d --build
 	@./scripts/wait_for_stack.sh
+
+market:
+	@./scripts/run_market.sh
+
+social:
+	@./scripts/run_social.sh
 
 down:
 	@docker compose down

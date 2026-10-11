@@ -8,17 +8,32 @@ import json
 import os
 import signal
 import socket
+import sys
 from pathlib import Path
+
+from dotenv import load_dotenv
+
+# Auto-add vigil_common and services to sys.path if missing
+_cur = Path(__file__).resolve()
+_root = _cur.parents[4] if len(_cur.parents) >= 5 else Path.cwd()
+for _p in [
+    _root / "libs" / "vigil_common" / "src",
+    _root / "services" / "market_ingest" / "src",
+]:
+    if _p.exists() and str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
+
+if (_root / ".env").exists():
+    load_dotenv(_root / ".env")
+else:
+    load_dotenv()
 
 import fastjsonschema
 import websockets
 from aiokafka import AIOKafkaProducer
-from dotenv import load_dotenv
 from vigil_common.logging import get_logger, setup_logging
 
 from market_ingest.binance_adapter import BinanceMarketAdapter
-
-load_dotenv()
 
 logger = get_logger("market_ingest")
 
