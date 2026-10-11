@@ -9,29 +9,11 @@ import json
 import os
 import signal
 import socket
-import sys
-from pathlib import Path
 from typing import Any
-
-from dotenv import load_dotenv
-
-# Auto-add vigil_common and services to sys.path if missing
-_cur = Path(__file__).resolve()
-_root = _cur.parents[4] if len(_cur.parents) >= 5 else Path.cwd()
-for _p in [
-    _root / "libs" / "vigil_common" / "src",
-    _root / "services" / "social_ingest" / "src",
-]:
-    if _p.exists() and str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
-
-if (_root / ".env").exists():
-    load_dotenv(_root / ".env")
-else:
-    load_dotenv()
 
 import websockets
 from aiokafka import AIOKafkaProducer
+from dotenv import find_dotenv, load_dotenv
 from vigil_common.logging import get_logger, setup_logging
 from vigil_common.models.social import SocialMessage
 from vigil_common.pseudonym import pseudonymize
@@ -39,6 +21,8 @@ from vigil_common.pseudonym import pseudonymize
 from social_ingest.connectors.discord_connector import DiscordConnector
 from social_ingest.connectors.reddit_connector import RedditConnector
 from social_ingest.connectors.telegram_connector import TelegramConnector
+
+load_dotenv(find_dotenv(usecwd=True))
 
 logger = get_logger("social_ingest")
 

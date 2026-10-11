@@ -8,32 +8,18 @@ import json
 import os
 import signal
 import socket
-import sys
 from pathlib import Path
-
-from dotenv import load_dotenv
-
-# Auto-add vigil_common and services to sys.path if missing
-_cur = Path(__file__).resolve()
-_root = _cur.parents[4] if len(_cur.parents) >= 5 else Path.cwd()
-for _p in [
-    _root / "libs" / "vigil_common" / "src",
-    _root / "services" / "market_ingest" / "src",
-]:
-    if _p.exists() and str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
-
-if (_root / ".env").exists():
-    load_dotenv(_root / ".env")
-else:
-    load_dotenv()
+from typing import Any
 
 import fastjsonschema
 import websockets
 from aiokafka import AIOKafkaProducer
+from dotenv import find_dotenv, load_dotenv
 from vigil_common.logging import get_logger, setup_logging
 
 from market_ingest.binance_adapter import BinanceMarketAdapter
+
+load_dotenv(find_dotenv(usecwd=True))
 
 logger = get_logger("market_ingest")
 
@@ -97,9 +83,13 @@ class MarketIngester:
             self.val_l3 = fastjsonschema.compile(l3_schema)
         except Exception as exc:
             logger.warning("Could not pre-compile all fastjsonschema validators", error=str(exc))
-            self.val_trade = lambda x: x
-            self.val_l2 = lambda x: x
-            self.val_l3 = lambda x: x
+
+            def _passthrough(x: Any) -> Any:
+                return x
+
+            self.val_trade = _passthrough
+            self.val_l2 = _passthrough
+            self.val_l3 = _passthrough
 
     def _is_duplicate(self, event_id: str) -> bool:
         if event_id in self.seen_set:
