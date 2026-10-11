@@ -137,7 +137,8 @@
         "BSE",
         "NASDAQ",
         "NYSE",
-        "SYNTH"
+        "SYNTH",
+        "BINANCE"
       ],
       "title": "Exchange",
       "type": "string"

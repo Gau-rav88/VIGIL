@@ -48,7 +48,7 @@ class SocialIntelService:
             try:
                 data = json.loads(record.value)
                 self.stats["messages"] += 1
-                signals, anomalies, hype_records = self.engine.process_message(data)
+                signals, anomalies, hype_records = await self.engine.process_message_async(data)
 
                 for sig in signals:
                     await self._emit_signal(sig)

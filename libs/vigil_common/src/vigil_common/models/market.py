@@ -18,7 +18,7 @@ class Party(BaseModel):
 class TradeTick(BaseModel):
     schema_version: Literal["1.0.0"] = "1.0.0"
     event_id: str
-    exchange: Literal["NSE", "BSE", "NASDAQ", "NYSE", "SYNTH"]
+    exchange: Literal["NSE", "BSE", "NASDAQ", "NYSE", "SYNTH", "BINANCE"]
     symbol: str = Field(..., pattern=r"^[A-Z0-9&._-]{1,24}$")
     isin: str | None = Field(default=None, pattern=r"^[A-Z]{2}[A-Z0-9]{9}[0-9]$")
     trade_id: str = Field(..., max_length=64)
@@ -40,7 +40,7 @@ class TradeTick(BaseModel):
 class L2Snapshot(BaseModel):
     schema_version: Literal["1.0.0"] = "1.0.0"
     event_id: str
-    exchange: Literal["NSE", "BSE", "NASDAQ", "NYSE", "SYNTH"]
+    exchange: Literal["NSE", "BSE", "NASDAQ", "NYSE", "SYNTH", "BINANCE"]
     symbol: str = Field(..., pattern=r"^[A-Z0-9&._-]{1,24}$")
     seq: int = Field(..., ge=0)
     ts_exchange: str
@@ -55,7 +55,7 @@ class L2Snapshot(BaseModel):
 class L3OrderEvent(BaseModel):
     schema_version: Literal["1.0.0"] = "1.0.0"
     event_id: str
-    exchange: Literal["NSE", "BSE", "NASDAQ", "NYSE", "SYNTH"]
+    exchange: Literal["NSE", "BSE", "NASDAQ", "NYSE", "SYNTH", "BINANCE"]
     symbol: str = Field(..., pattern=r"^[A-Z0-9&._-]{1,24}$")
     seq: int = Field(..., ge=0)
     ts_exchange: str

@@ -16,11 +16,16 @@ from vigil_common.logging import get_logger, setup_logging
 from vigil_common.models.social import SocialMessage
 from vigil_common.pseudonym import pseudonymize
 
+from social_ingest.connectors.discord_connector import DiscordConnector
+from social_ingest.connectors.reddit_connector import RedditConnector
+from social_ingest.connectors.telegram_connector import TelegramConnector
+
 logger = get_logger("social_ingest")
 
 
 class SocialIngester:
     def __init__(self) -> None:
+        self.adapter_type = os.getenv("SOCIAL_ADAPTER", "synthetic_ws").lower()
         self.ws_url = os.getenv("SOCIAL_WS_URL", "ws://simulator:8090/ws/social")
         self.kafka_bootstrap = os.getenv("KAFKA_BOOTSTRAP", "redpanda:9092")
         self.pepper = os.getenv("PSEUDONYM_PEPPER", "change-me-dev-pepper-32bytes-min")
@@ -34,10 +39,16 @@ class SocialIngester:
         )
         self.max_dedupe_entries = 100_000
 
+        # Live connectors
+        self.discord_connector: DiscordConnector | None = None
+        self.telegram_connector: TelegramConnector | None = None
+        self.reddit_connector: RedditConnector | None = None
+
     async def start(self) -> None:
         self.running = True
         logger.info(
             "Starting social_ingest",
+            adapter_type=self.adapter_type,
             ws_url=self.ws_url,
             kafka_bootstrap=self.kafka_bootstrap,
             keep_scenario_labels=self.keep_scenario_labels,
@@ -51,6 +62,76 @@ class SocialIngester:
         await self.producer.start()
         logger.info("Kafka producer connected for social messages")
 
+        if self.adapter_type in ("live", "real", "production"):
+            tasks = []
+
+            # 1. Discord Live Connector
+            discord_token = os.getenv("DISCORD_BOT_TOKEN", "").strip()
+            if discord_token:
+                channel_ids = [c.strip() for c in os.getenv("DISCORD_CHANNEL_IDS", "").split(",") if c.strip()]
+                self.discord_connector = DiscordConnector(discord_token, channel_ids)
+
+                async def _run_discord() -> None:
+                    assert self.discord_connector is not None
+                    logger.info("Launching Discord live ingest...")
+                    async for msg in self.discord_connector.start():
+                        if not self.running:
+                            break
+                        await self._process_message(msg)
+
+                tasks.append(asyncio.create_task(_run_discord()))
+
+            # 2. Telegram Live Connector
+            telegram_channels = [c.strip() for c in os.getenv("TELEGRAM_CHANNELS", "").split(",") if c.strip()]
+            if telegram_channels or os.getenv("TELEGRAM_API_ID"):
+                self.telegram_connector = TelegramConnector(
+                    api_id=int(os.getenv("TELEGRAM_API_ID", "0")) or None,
+                    api_hash=os.getenv("TELEGRAM_API_HASH"),
+                    phone=os.getenv("TELEGRAM_PHONE"),
+                    channels=telegram_channels or ["binance_announcements", "cryptopumpalerts", "wallstreetbets"],
+                )
+
+                async def _run_telegram() -> None:
+                    assert self.telegram_connector is not None
+                    logger.info("Launching Telegram live ingest...")
+                    async for msg in self.telegram_connector.stream():
+                        if not self.running:
+                            break
+                        await self._process_message(msg)
+
+                tasks.append(asyncio.create_task(_run_telegram()))
+
+            # 3. Reddit Live Connector
+            reddit_client_id = os.getenv("REDDIT_CLIENT_ID", "").strip()
+            reddit_secret = os.getenv("REDDIT_CLIENT_SECRET", "").strip()
+            if reddit_client_id and reddit_secret and reddit_client_id != "your_client_id_here":
+                subreddits = [s.strip() for s in os.getenv("REDDIT_SUBREDDITS", "").split(",") if s.strip()]
+                self.reddit_connector = RedditConnector(
+                    client_id=reddit_client_id,
+                    client_secret=reddit_secret,
+                    user_agent=os.getenv("REDDIT_USER_AGENT", "vigil:v1.0 (forensic surveillance platform)"),
+                    subreddits=subreddits or ["wallstreetbets", "CryptoCurrency", "pennystocks"],
+                )
+
+                async def _run_reddit() -> None:
+                    assert self.reddit_connector is not None
+                    logger.info("Launching Reddit live ingest...")
+                    async for msg in self.reddit_connector.stream():
+                        if not self.running:
+                            break
+                        await self._process_message(msg)
+
+                tasks.append(asyncio.create_task(_run_reddit()))
+
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
+            else:
+                logger.warning("Live social adapter configured, but no active connector credentials found. Falling back to WebSocket.")
+                await self._run_ws_loop()
+        else:
+            await self._run_ws_loop()
+
+    async def _run_ws_loop(self) -> None:
         reconnect_delay = 1.0
         while self.running:
             try:
@@ -94,8 +175,10 @@ class SocialIngester:
             )
         logger.warning("Routed social message to DLQ", reason=reason, error=error)
 
-    async def _process_message(self, raw_msg: str | bytes) -> None:
-        if isinstance(raw_msg, str):
+    async def _process_message(self, raw_msg: str | bytes | dict[str, Any]) -> None:
+        if isinstance(raw_msg, dict):
+            raw_bytes = json.dumps(raw_msg).encode("utf-8")
+        elif isinstance(raw_msg, str):
             raw_bytes = raw_msg.encode("utf-8")
         else:
             raw_bytes = raw_msg
@@ -189,6 +272,12 @@ class SocialIngester:
 
     async def stop(self) -> None:
         self.running = False
+        if self.discord_connector:
+            await self.discord_connector.stop()
+        if self.telegram_connector:
+            self.telegram_connector.stop()
+        if self.reddit_connector:
+            self.reddit_connector.stop()
         if self.producer:
             await self.producer.stop()
         logger.info("Social ingester stopped cleanly")

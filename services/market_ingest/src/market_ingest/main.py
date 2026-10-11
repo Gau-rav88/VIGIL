@@ -14,6 +14,8 @@ import websockets
 from aiokafka import AIOKafkaProducer
 from vigil_common.logging import get_logger, setup_logging
 
+from market_ingest.binance_adapter import BinanceMarketAdapter
+
 logger = get_logger("market_ingest")
 
 
@@ -31,12 +33,15 @@ def find_schemas_dir() -> Path:
 
 class MarketIngester:
     def __init__(self) -> None:
+        self.adapter_type = os.getenv("MARKET_ADAPTER", "websocket").lower()
+        self.binance_symbols = [s.strip() for s in os.getenv("BINANCE_SYMBOLS", "BTCUSDT,ETHUSDT,SOLUSDT").split(",") if s.strip()]
         self.ws_url = os.getenv("MARKET_WS_URL", "ws://simulator:8090/ws/market")
         self.kafka_bootstrap = os.getenv("KAFKA_BOOTSTRAP", "redpanda:9092")
         self.keep_scenario_labels = os.getenv("KEEP_SCENARIO_LABELS", "false").lower() == "true"
         self.high_watermark = int(os.getenv("INGEST_QUEUE_HIGH_WATERMARK", "50000"))
         self.producer: AIOKafkaProducer | None = None
         self.running = False
+        self.binance_adapter: BinanceMarketAdapter | None = None
 
         # Deduplication
         self.seen_events: collections.deque[str] = collections.deque(maxlen=100000)
@@ -94,28 +99,36 @@ class MarketIngester:
         await self.producer.start()
         logger.info("Kafka producer connected to Redpanda")
 
-        reconnect_delay = 1.0
-        while self.running:
-            try:
-                logger.info("Connecting to market simulator WebSocket...", url=self.ws_url)
-                async with websockets.connect(self.ws_url, max_size=10 * 1024 * 1024) as ws:
-                    reconnect_delay = 1.0
-                    logger.info("Connected to market simulator stream")
-                    while self.running:
-                        msg = await ws.recv()
-                        await self._process_message(msg)
+        if self.adapter_type == "binance":
+            logger.info("Using Binance live market adapter", symbols=self.binance_symbols)
+            self.binance_adapter = BinanceMarketAdapter(self.binance_symbols)
+            async for msg in self.binance_adapter.stream():
+                if not self.running:
+                    break
+                await self._process_message(msg)
+        else:
+            reconnect_delay = 1.0
+            while self.running:
+                try:
+                    logger.info("Connecting to market simulator WebSocket...", url=self.ws_url)
+                    async with websockets.connect(self.ws_url, max_size=10 * 1024 * 1024) as ws:
+                        reconnect_delay = 1.0
+                        logger.info("Connected to market simulator stream")
+                        while self.running:
+                            raw_frame = await ws.recv()
+                            await self._process_message(raw_frame)
 
-            except (websockets.ConnectionClosed, OSError) as exc:
-                if not self.running:
-                    break
-                logger.warning("WebSocket disconnected, retrying...", error=str(exc), delay=reconnect_delay)
-                await asyncio.sleep(reconnect_delay)
-                reconnect_delay = min(reconnect_delay * 1.5, 10.0)
-            except Exception as exc:
-                if not self.running:
-                    break
-                logger.error("Unexpected error in market ingest loop", error=str(exc))
-                await asyncio.sleep(1.0)
+                except (websockets.ConnectionClosed, OSError) as exc:
+                    if not self.running:
+                        break
+                    logger.warning("WebSocket disconnected, retrying...", error=str(exc), delay=reconnect_delay)
+                    await asyncio.sleep(reconnect_delay)
+                    reconnect_delay = min(reconnect_delay * 1.5, 10.0)
+                except Exception as exc:
+                    if not self.running:
+                        break
+                    logger.error("Unexpected error in market ingest loop", error=str(exc))
+                    await asyncio.sleep(1.0)
 
     async def _send_dlq(self, raw_msg: str | bytes, error_msg: str) -> None:
         self.stats["dlq"] += 1
@@ -229,6 +242,8 @@ class MarketIngester:
 
     async def stop(self) -> None:
         self.running = False
+        if self.binance_adapter:
+            self.binance_adapter.stop()
         if self.producer:
             await self.producer.stop()
         logger.info("Market ingester stopped cleanly")

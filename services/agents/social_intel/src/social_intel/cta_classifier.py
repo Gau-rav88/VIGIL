@@ -229,19 +229,20 @@ class CtaClassifier:
     ) -> list[dict[str, Any]]:
         """
         Async, concurrency-bounded, timeout-bounded LLM refinement path (P3-T06, P3-G2).
-        Falls back seamlessly to classify_fallback if ANTHROPIC_API_KEY is unset or on timeout.
+        Supports GROQ_API_KEY (free high-speed Llama/Qwen) and ANTHROPIC_API_KEY.
+        Falls back seamlessly to classify_fallback if neither key is set or on timeout.
         """
-        api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
-        if not api_key:
-            # AC-SOC-02: Without key, always use fallback rules
+        groq_key = os.getenv("GROQ_API_KEY", "").strip()
+        anthropic_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+        active_key = groq_key or anthropic_key
+        if not active_key:
             return [self.classify_fallback(m.get("text", "")) for m in messages]
 
         # Use semaphore for LLM_MAX_CONCURRENCY bounds
         async with self.semaphore:
             try:
-                # Wrap with asyncio.wait_for honoring LLM_TIMEOUT_S bounds
                 result = await asyncio.wait_for(
-                    self._call_llm_api(messages, api_key),
+                    self._call_llm_api(messages, active_key),
                     timeout=self.llm_timeout_s,
                 )
                 return result
@@ -257,7 +258,6 @@ class CtaClassifier:
         """
         Actual API invocation with prompt-injection defense and audit logging.
         """
-        # Formulate prompt wrapping untrusted input in <message> blocks
         formatted_msgs = "\n".join(
             f'<message id="{m.get("message_id", idx)}">{m.get("text", "")}</message>'
             for idx, m in enumerate(messages)
@@ -269,46 +269,75 @@ class CtaClassifier:
         )
         prompt_sha256 = hashlib.sha256(prompt_text.encode("utf-8")).hexdigest()
 
-        # In testing or when using Anthropic client:
-        # If httpx is available, call Anthropic API, otherwise mock/parse
         try:
             import httpx
 
-            async with httpx.AsyncClient(timeout=self.llm_timeout_s) as client:
-                resp = await client.post(
-                    "https://api.anthropic.com/v1/messages",
-                    headers={
-                        "x-api-key": api_key,
-                        "anthropic-version": "2023-06-01",
-                        "content-type": "application/json",
-                    },
-                    json={
-                        "model": "claude-3-haiku-20240307",
-                        "max_tokens": 1024,
-                        "messages": [{"role": "user", "content": prompt_text}],
-                    },
-                )
-                resp_json = resp.json()
-                content_text = resp_json.get("content", [{}])[0].get("text", "{}")
-                resp_sha256 = hashlib.sha256(content_text.encode("utf-8")).hexdigest()
+            is_groq = api_key.startswith("gsk_") or os.getenv("LLM_PROVIDER") == "groq"
+            if is_groq:
+                model_name = os.getenv("LLM_MODEL", "qwen/qwen3.8-27b")
+                async with httpx.AsyncClient(timeout=self.llm_timeout_s) as client:
+                    resp = await client.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {api_key}",
+                            "Content-Type": "application/json",
+                        },
+                        json={
+                            "model": model_name,
+                            "messages": [
+                                {
+                                    "role": "system",
+                                    "content": (
+                                        "You are a financial forensic classifier. Output only valid JSON with format: "
+                                        '{"items": [{"message_id": "...", "cta_class": "BUY_CALL"|"HOLD_PUMP"|"TARGET_PRICE"|'
+                                        '"EXIT_SIGNAL"|"COORDINATION_TIMING"|"NEUTRAL", "cta_confidence": 0.95, "target_price": null, '
+                                        '"scheduled_action_time": null, "urgency": 0.8, "sentiment": 0.5}]}.'
+                                    ),
+                                },
+                                {"role": "user", "content": prompt_text},
+                            ],
+                            "response_format": {"type": "json_object"},
+                            "max_tokens": 1024,
+                        },
+                    )
+                    resp_json = resp.json()
+                    content_text = resp_json.get("choices", [{}])[0].get("message", {}).get("content", "{}")
+            else:
+                async with httpx.AsyncClient(timeout=self.llm_timeout_s) as client:
+                    resp = await client.post(
+                        "https://api.anthropic.com/v1/messages",
+                        headers={
+                            "x-api-key": api_key,
+                            "anthropic-version": "2023-06-01",
+                            "content-type": "application/json",
+                        },
+                        json={
+                            "model": os.getenv("LLM_MODEL", "claude-3-haiku-20240307"),
+                            "max_tokens": 1024,
+                            "messages": [{"role": "user", "content": prompt_text}],
+                        },
+                    )
+                    resp_json = resp.json()
+                    content_text = resp_json.get("content", [{}])[0].get("text", "{}")
 
-                # Parse JSON and validate with Pydantic
-                parsed = json.loads(content_text)
-                validated = LLMResponse.model_validate(parsed)
-                out = []
-                for item in validated.items:
-                    out.append({
-                        "cta_class": item.cta_class,
-                        "cta_confidence": item.cta_confidence,
-                        "target_price": item.target_price,
-                        "scheduled_action_time": item.scheduled_action_time,
-                        "urgency": item.urgency,
-                        "sentiment": item.sentiment,
-                        "parser_mode": "LLM",
-                        "prompt_sha256": prompt_sha256,
-                        "response_sha256": resp_sha256,
-                    })
-                return out
+            resp_sha256 = hashlib.sha256(content_text.encode("utf-8")).hexdigest()
+
+            parsed = json.loads(content_text)
+            validated = LLMResponse.model_validate(parsed)
+            out = []
+            for item in validated.items:
+                out.append({
+                    "cta_class": item.cta_class,
+                    "cta_confidence": item.cta_confidence,
+                    "target_price": item.target_price,
+                    "scheduled_action_time": item.scheduled_action_time,
+                    "urgency": item.urgency,
+                    "sentiment": item.sentiment,
+                    "parser_mode": "LLM",
+                    "prompt_sha256": prompt_sha256,
+                    "response_sha256": resp_sha256,
+                })
+            return out
         except Exception:
             # Fall back to rule-based output
             fallback_list = [self.classify_fallback(m.get("text", "")) for m in messages]

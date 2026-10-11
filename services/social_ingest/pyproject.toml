@@ -6,6 +6,9 @@ requires-python = ">=3.12"
 dependencies = [
     "vigil-common",
     "websockets>=12.0",
+    "discord-py>=2.3.0",
+    "telethon>=1.36.0",
+    "httpx>=0.27.0",
 ]
 
 [build-system]

@@ -3,6 +3,7 @@ from __future__ import annotations
 import collections
 import datetime
 import hashlib
+import os
 import uuid
 from typing import Any
 
@@ -74,6 +75,102 @@ class SocialIntelEngine:
         # 3. Classify CTA, Urgency, Target Price, Timing (FR-SOC-04, P3-T05)
         cta_res = self.cta_classifier.classify_fallback(norm_text)
 
+        return self._build_signals_and_anomalies(
+            extracted_tickers=extracted_tickers,
+            cta_res=cta_res,
+            msg=msg,
+            msg_id=msg_id,
+            author_id=author_id,
+            channel_id=channel_id,
+            platform=platform,
+            ts_posted=ts_posted,
+            raw_sha256=raw_sha256,
+            cluster_id=cluster_id,
+            cluster_size=cluster_size,
+            now_ts=now_ts,
+        )
+
+    async def process_message_async(
+        self,
+        msg: dict[str, Any],
+        now_ts: float | None = None,
+    ) -> tuple[list[SocialSignal], list[AnomalyEvent], list[dict[str, Any]]]:
+        """
+        Async version of process_message that invokes live LLM (Groq or Claude)
+        if API keys are available, otherwise falls back gracefully.
+        """
+        raw_text = msg.get("text", "")
+        if not raw_text:
+            return [], [], []
+
+        norm_text = normalize_text(raw_text)
+        author_id = msg.get("author_id", "unknown")
+        channel_id = msg.get("channel_id", "default")
+        msg_id = msg.get("message_id", str(uuid.uuid4()))
+        platform = msg.get("platform", "telegram")
+        ts_posted = msg.get("ts_posted", datetime.datetime.now(datetime.timezone.utc).isoformat())
+        raw_sha256 = msg.get("raw_sha256", hashlib.sha256(raw_text.encode("utf-8")).hexdigest())
+
+        if now_ts is None:
+            try:
+                dt_post = datetime.datetime.fromisoformat(ts_posted.replace("Z", "+00:00"))
+                now_ts = dt_post.timestamp()
+            except Exception:
+                now_ts = datetime.datetime.now(datetime.timezone.utc).timestamp()
+
+        # 1. Near-duplicate LSH clustering (FR-SOC-05, P3-T07)
+        cluster_id, cluster_size = self.lsh.insert_and_cluster(
+            msg_id=msg_id,
+            text=norm_text,
+            author_id=author_id,
+            channel_id=channel_id,
+            ts=now_ts,
+        )
+
+        # 2. Extract tickers (FR-SOC-03, P3-T04)
+        extracted_tickers = self.ticker_extractor.extract_tickers(norm_text)
+        if not extracted_tickers:
+            return [], [], []
+
+        # 3. Classify with LLM if key present
+        cta_res = None
+        if os.getenv("GROQ_API_KEY") or os.getenv("ANTHROPIC_API_KEY"):
+            llm_results = await self.cta_classifier.classify_with_llm([{"message_id": msg_id, "text": norm_text}])
+            if llm_results:
+                cta_res = llm_results[0]
+        if not cta_res:
+            cta_res = self.cta_classifier.classify_fallback(norm_text)
+
+        return self._build_signals_and_anomalies(
+            extracted_tickers=extracted_tickers,
+            cta_res=cta_res,
+            msg=msg,
+            msg_id=msg_id,
+            author_id=author_id,
+            channel_id=channel_id,
+            platform=platform,
+            ts_posted=ts_posted,
+            raw_sha256=raw_sha256,
+            cluster_id=cluster_id,
+            cluster_size=cluster_size,
+            now_ts=now_ts,
+        )
+
+    def _build_signals_and_anomalies(
+        self,
+        extracted_tickers: list[tuple[str, float, Any]],
+        cta_res: dict[str, Any],
+        msg: dict[str, Any],
+        msg_id: str,
+        author_id: str,
+        channel_id: str,
+        platform: str,
+        ts_posted: str,
+        raw_sha256: str,
+        cluster_id: str | None,
+        cluster_size: int,
+        now_ts: float | None,
+    ) -> tuple[list[SocialSignal], list[AnomalyEvent], list[dict[str, Any]]]:
         signals: list[SocialSignal] = []
         anomalies: list[AnomalyEvent] = []
         hype_records: list[dict[str, Any]] = []

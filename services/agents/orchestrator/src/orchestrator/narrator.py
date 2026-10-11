@@ -61,6 +61,7 @@ class TemplateNarrator:
 class LLMNarrator:
     def __init__(self, api_key: str | None = None) -> None:
         self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
+        self.groq_key = os.getenv("GROQ_API_KEY", "").strip()
         self.fallback = TemplateNarrator()
 
     def generate_narrative(
@@ -72,14 +73,47 @@ class LLMNarrator:
         alignment_data: dict[str, Any] | None,
         evidence_ids: dict[str, str],
     ) -> tuple[str, str]:
-        # If API key is not configured or LLM unavailable, fallback immediately to TemplateNarrator
-        if not self.api_key:
-            return self.fallback.generate_narrative(
-                symbol, market_data, social_data, attribution_data, alignment_data, evidence_ids
-            )
+        # If Groq key is configured, synthesize dynamic forensic summary
+        if self.groq_key:
+            try:
+                import httpx
 
-        # In production LLM mode: would call Claude 3.5 Sonnet with structured tool output
-        # If validation or timeout fails after 2 retries, returns TemplateNarrator per PRD P6-T07
+                trade_ev = evidence_ids.get("TRADE_SLICE", "EV-TRADE_SLICE-000000000000")
+                social_ev = evidence_ids.get("SOCIAL_SLICE", "EV-SOCIAL_SLICE-000000000000")
+                graph_ev = evidence_ids.get("GRAPH_EXPORT", "EV-GRAPH_EXPORT-000000000000")
+                anom_ev = evidence_ids.get("ANOMALY_EVENT", "EV-ANOMALY_EVENT-000000000000")
+
+                prompt = (
+                    f"You are a regulatory forensic investigator writing an executive dossier summary for target {symbol}.\n"
+                    f"You must include every evidence tag exactly as shown in brackets:\n"
+                    f"- Trade anomaly: [{trade_ev}]\n"
+                    f"- Social hype: [{social_ev}]\n"
+                    f"- Sybil graph: [{graph_ev}]\n"
+                    f"- Cross-modal alignment: [{anom_ev}]\n"
+                    f"Write a concise 3-4 sentence forensic summary citing each tag."
+                )
+
+                model_name = os.getenv("LLM_MODEL", "qwen/qwen3.8-27b")
+                resp = httpx.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {self.groq_key}", "Content-Type": "application/json"},
+                    json={
+                        "model": model_name,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "max_tokens": 300,
+                        "temperature": 0.2,
+                    },
+                    timeout=5.0,
+                )
+                if resp.status_code == 200:
+                    text = resp.json()["choices"][0]["message"]["content"].strip()
+                    # Ensure all evidence IDs are referenced
+                    if all(ev in text for ev in (trade_ev, social_ev, graph_ev, anom_ev)):
+                        return text, "LLM"
+            except Exception:
+                pass
+
+        # Fallback to deterministic template narrator (guarantees court-admissible citation tags)
         return self.fallback.generate_narrative(
             symbol, market_data, social_data, attribution_data, alignment_data, evidence_ids
         )
