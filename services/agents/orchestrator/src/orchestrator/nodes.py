@@ -315,10 +315,15 @@ def assess_node(deps: OrchestratorDeps) -> Callable[[CaseState], Any]:
             }
         ]
 
+        window = dict(state.get("window") or {})
+        if overall < 0.60:
+            window["widen_count"] = window.get("widen_count", 0) + 1
+
         return {
             "stage": "ASSESSING",
             "confidence": conf,
             "clauses": clauses,
+            "window": window,
         }
 
     return node

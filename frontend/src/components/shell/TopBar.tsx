@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { ConnectionStatus } from "./ConnectionStatus";
 import { Search, Globe, Moon, Sun, Sliders, UserCheck } from "lucide-react";
-import { getRole, setRole, Role } from "@/lib/auth";
+import { getRole, setRole, getRoleCapabilities, Role } from "@/lib/auth";
 
 interface TopBarProps {
   onSearch?: (query: string) => void;
@@ -19,10 +19,15 @@ export function TopBar({ onSearch }: TopBarProps) {
     setUserRole(getRole());
   }, []);
 
+  const caps = getRoleCapabilities(role);
+
   const handleRoleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const nextRole = e.target.value as Role;
     setUserRole(nextRole);
     await setRole(nextRole);
+    if (typeof window !== "undefined") {
+      window.location.reload();
+    }
   };
 
   const toggleTheme = () => {
@@ -83,18 +88,28 @@ export function TopBar({ onSearch }: TopBarProps) {
 
       {/* Center-Right Status */}
       <div className="flex items-center space-x-4">
-        {/* Role Persona Switcher */}
-        <select
-          value={role}
-          onChange={handleRoleChange}
-          className="bg-bg-base border border-line text-xs font-mono text-ink rounded px-2 py-1 outline-none cursor-pointer"
-          title="Switch compliance persona"
-        >
-          <option value="compliance_officer">Role: Compliance Officer</option>
-          <option value="investigator">Role: Investigator</option>
-          <option value="admin">Role: Admin</option>
-          <option value="auditor_readonly">Role: Auditor (Read-only)</option>
-        </select>
+        {/* Role Persona Switcher & Badge */}
+        <div className="flex items-center space-x-2">
+          <span
+            className={`px-2 py-0.5 rounded-chip text-[10px] font-mono font-bold tracking-wider uppercase border ${caps.badgeColor} hidden sm:inline-flex items-center gap-1.5 shadow-xs`}
+            title={caps.description}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse shrink-0" />
+            <span>{caps.badgeLabel}</span>
+          </span>
+
+          <select
+            value={role}
+            onChange={handleRoleChange}
+            className="bg-bg-base border border-line text-xs font-mono font-semibold text-ink rounded px-2.5 py-1 outline-none cursor-pointer hover:border-line-strong transition"
+            title={caps.description}
+          >
+            <option value="compliance_officer">Role: Compliance Officer (Sign & Freeze)</option>
+            <option value="investigator">Role: Investigator (Triage & Submit)</option>
+            <option value="admin">Role: System Admin (Matching Engine Ops)</option>
+            <option value="auditor_readonly">Role: Auditor (Read-Only Mode)</option>
+          </select>
+        </div>
 
         <ConnectionStatus />
 

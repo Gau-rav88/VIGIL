@@ -55,7 +55,10 @@ def verify_bundle(bundle_path: str | Path, pubkey_pem: str | None = None) -> dic
                 failed.append("SCHEMA_INVALID")
 
             # 2. Check Evidence Hashes
-            evidence_items = manifest_data.get("evidence_manifest", [])
+            if isinstance(manifest_data, list):
+                evidence_items = manifest_data
+            else:
+                evidence_items = manifest_data.get("evidence_manifest", [])
             checked_count = 0
             hashes_ok = True
             for item in evidence_items:
@@ -83,14 +86,17 @@ def verify_bundle(bundle_path: str | Path, pubkey_pem: str | None = None) -> dic
 
             # 3. Check Merkle Root (RFC 6962)
             calc_root, _ = compute_merkle_root(evidence_items)
-            expected_root = manifest_data.get("merkle_root") or dossier_data.get("merkle_root")
+            expected_root = (manifest_data.get("merkle_root") if isinstance(manifest_data, dict) else None) or dossier_data.get("merkle_root")
             merkle_ok = (calc_root == expected_root)
             if not merkle_ok:
                 failed.append("MERKLE_MISMATCH")
             checks.append({"name": "MERKLE_ROOT", "ok": merkle_ok, "root": calc_root})
 
             # 4. Check Ledger Chain Continuity
-            ledger_entries = ledger_proof.get("entries", [])
+            if isinstance(ledger_proof, list):
+                ledger_entries = ledger_proof
+            else:
+                ledger_entries = ledger_proof.get("entries", [])
             ledger_ok = verify_ledger_chain(ledger_entries)
             if not ledger_ok:
                 failed.append("LEDGER_CHAIN_BROKEN")

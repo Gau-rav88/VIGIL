@@ -6,10 +6,13 @@ import asyncpg
 import pytest
 
 
+from vigil_common.network import resolve_db_dsn
+
+
 @pytest.mark.asyncio
 async def test_evidence_ledger_immutability_triggers() -> None:
     # AC-DOS-03: SQL UPDATE/DELETE on evidence_ledger raises
-    dsn = os.getenv("PG_DSN", "postgresql://vigil:vigil@localhost:5434/vigil")
+    dsn = resolve_db_dsn(os.getenv("PG_DSN"))
     conn = await asyncpg.connect(dsn)
 
     try:

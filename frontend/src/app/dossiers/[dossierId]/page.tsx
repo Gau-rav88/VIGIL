@@ -20,7 +20,9 @@ import {
   ChevronDown,
   ChevronRight,
   ExternalLink,
+  Lock,
 } from "lucide-react";
+import { getRole, getRoleCapabilities, Role } from "@/lib/auth";
 
 export default function DossierViewerPage() {
   const params = useParams();
@@ -39,6 +41,16 @@ export default function DossierViewerPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showLeads, setShowLeads] = useState(false);
+  const [role, setRoleState] = useState<Role>(getRole());
+
+  useEffect(() => {
+    setRoleState(getRole());
+    const handler = () => setRoleState(getRole());
+    window.addEventListener("vigil-role-changed", handler);
+    return () => window.removeEventListener("vigil-role-changed", handler);
+  }, []);
+
+  const caps = getRoleCapabilities(role);
 
   const loadData = async () => {
     try {
@@ -400,20 +412,26 @@ export default function DossierViewerPage() {
             </div>
           </div>
 
-          {/* Decision Panel (Officers) */}
-          <div className="bg-bg-raised border border-line rounded-panel p-4 space-y-4 shadow-sm text-xs">
-            <div className="flex items-center justify-between border-b border-line pb-2">
-              <span className="font-bold text-ink uppercase tracking-wide">
-                Decision Panel
-              </span>
-              <span className="text-[10px] text-ink-muted">Compliance</span>
-            </div>
-
-            {!isIntegrityPassed ? (
-              <div className="p-3 rounded-cell bg-seal-wash border border-seal text-seal text-xs">
-                Review is blocked until the record verifies.
+          {/* Decision Panel: Exclusively rendered for Compliance Officers */}
+          {caps.canReviewDossier ? (
+            <div className="bg-bg-raised border border-line rounded-panel p-4 space-y-4 shadow-sm text-xs">
+              <div className="flex items-center justify-between border-b border-line pb-2">
+                <div className="flex items-center space-x-2">
+                  <span className="font-bold text-ink uppercase tracking-wide">
+                    Decision Panel
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-chip text-[10px] font-mono font-bold uppercase border ${caps.badgeColor}`}>
+                    {caps.badgeLabel}
+                  </span>
+                </div>
+                <span className="text-[10px] text-ink-muted font-mono">Signing Authority</span>
               </div>
-            ) : (
+
+              {!isIntegrityPassed ? (
+                <div className="p-3 rounded-cell bg-seal-wash border border-seal text-seal text-xs">
+                  Review is blocked until the record verifies.
+                </div>
+              ) : (
               <div className="space-y-3">
                 {/* Radio options */}
                 <div className="space-y-1.5">
@@ -493,6 +511,39 @@ export default function DossierViewerPage() {
               </div>
             )}
           </div>
+        ) : (
+          <div className="bg-bg-raised border border-line rounded-panel p-4 space-y-3 shadow-sm text-xs">
+            <div className="flex items-center justify-between border-b border-line pb-2">
+              <span className="font-bold text-ink uppercase tracking-wide">
+                {role === "investigator"
+                  ? "Investigation Status"
+                  : role === "auditor_readonly"
+                  ? "Audit Integrity Record"
+                  : "Platform Record"}
+              </span>
+              <span className={`px-2 py-0.5 rounded-chip text-[10px] font-mono font-bold uppercase border ${caps.badgeColor}`}>
+                {caps.badgeLabel}
+              </span>
+            </div>
+            <p className="text-ink-muted text-xs leading-relaxed">
+              {role === "investigator"
+                ? "This forensic dossier has been submitted and queued for formal regulatory review. Formal signoff and cryptographic sealing are executed by Compliance Officers."
+                : role === "auditor_readonly"
+                ? "Tamper-evident evidentiary record. All cryptographic digests and signatures have been validated against the immutable Merkle ledger."
+                : "Platform dossier compiled from telemetry and multi-agent surveillance pipeline."}
+            </p>
+            <div className="p-2.5 rounded-cell bg-bg-sunken border border-line text-[11px] text-ink flex items-center justify-between">
+              <span className="text-ink-muted">Workflow State:</span>
+              <span className="font-semibold text-verified">
+                {role === "investigator"
+                  ? "Submitted to Compliance"
+                  : role === "auditor_readonly"
+                  ? "Cryptographically Sealed"
+                  : "Archived Record"}
+              </span>
+            </div>
+          </div>
+        )}
         </div>
       </div>
 

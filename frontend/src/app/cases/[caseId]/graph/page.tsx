@@ -6,6 +6,7 @@ import { fetchCaseGraph, postLinkFeedback } from "@/lib/api";
 import { copy } from "@/lib/copy";
 import { Button } from "@/components/ui/Button";
 import { EvidenceTag } from "@/components/ui/EvidenceTag";
+import { getRole, getRoleCapabilities, Role } from "@/lib/auth";
 import {
   GitFork,
   Check,
@@ -19,6 +20,7 @@ import {
   ShieldAlert,
   Info,
   Radio,
+  Lock,
 } from "lucide-react";
 
 interface NodeItem {
@@ -65,6 +67,16 @@ export default function CaseGraphPage() {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [feedbackPopover, setFeedbackPopover] = useState(false);
   const [feedbackComment, setFeedbackComment] = useState("");
+  const [role, setRoleState] = useState<Role>(getRole());
+
+  useEffect(() => {
+    setRoleState(getRole());
+    const handler = () => setRoleState(getRole());
+    window.addEventListener("vigil-role-changed", handler);
+    return () => window.removeEventListener("vigil-role-changed", handler);
+  }, []);
+
+  const caps = getRoleCapabilities(role);
 
   useEffect(() => {
     async function load() {
@@ -718,28 +730,36 @@ export default function CaseGraphPage() {
                 </div>
               </div>
 
-              {/* Challenge Actions */}
-              <div className="space-y-2 border-t border-line/60 pt-3">
-                <Button
-                  size="sm"
-                  variant="danger"
-                  className="w-full"
-                  onClick={() => setFeedbackPopover(true)}
-                >
-                  <X className="h-3.5 w-3.5 mr-1.5" />
-                  <span>{copy.action.markFalse}</span>
-                </Button>
+              {/* Challenge Actions: Only displayed for Investigator & Compliance */}
+              {caps.canChallengeLinks && (
+                <div className="space-y-2 border-t border-line/60 pt-3">
+                  <div className="flex items-center justify-between text-[11px] text-ink-muted mb-1">
+                    <span>Forensic Attribution Action</span>
+                    <span className={`px-1.5 py-0.5 rounded-cell text-[10px] font-mono font-bold uppercase ${caps.badgeColor}`}>
+                      {caps.label}
+                    </span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    className="w-full"
+                    onClick={() => setFeedbackPopover(true)}
+                  >
+                    <X className="h-3.5 w-3.5 mr-1.5" />
+                    <span>{copy.action.markFalse}</span>
+                  </Button>
 
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="w-full"
-                  onClick={handleConfirmLink}
-                >
-                  <Check className="h-3.5 w-3.5 mr-1.5 text-verified" />
-                  <span>{copy.action.confirmLink}</span>
-                </Button>
-              </div>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="w-full"
+                    onClick={handleConfirmLink}
+                  >
+                    <Check className="h-3.5 w-3.5 mr-1.5 text-verified" />
+                    <span>{copy.action.confirmLink}</span>
+                  </Button>
+                </div>
+              )}
 
               {/* False Positive Popover Modal */}
               {feedbackPopover && (

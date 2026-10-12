@@ -9,6 +9,7 @@ from orchestrator.narrator import LLMNarrator
 async def test_llm_blocked_fallback_produces_template_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     # AC-ORC-03: LLM blocked => dossier produced with narrative_mode="TEMPLATE"
     monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+    monkeypatch.setenv("GROQ_API_KEY", "")
 
     narrator = LLMNarrator(api_key=None)
     text, mode = narrator.generate_narrative(

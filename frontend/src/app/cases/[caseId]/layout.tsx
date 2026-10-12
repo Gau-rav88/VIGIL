@@ -66,6 +66,7 @@ export default function CaseLayout({ children }: { children: React.ReactNode }) 
     <div className="flex flex-col flex-1 -m-6 min-h-screen bg-bg-base">
       {/* Pinned CaseBar */}
       <CaseBar
+        caseId={caseId}
         symbol={caseData?.symbol || "—"}
         exchange={caseData?.exchange || "—"}
         status={caseData?.status || "—"}

@@ -11,10 +11,13 @@ from orchestrator.models import CaseState
 from orchestrator.nodes import OrchestratorDeps
 
 
+from vigil_common.network import resolve_db_dsn
+
+
 @pytest.mark.asyncio
 async def test_resume_does_not_create_duplicate_ledger_entries() -> None:
     # AC-ORC-02: Resuming orchestrator on mid-case produces no duplicate ledger entries
-    dsn = os.getenv("PG_DSN", "postgresql://vigil:vigil@localhost:5434/vigil")
+    dsn = resolve_db_dsn(os.getenv("PG_DSN"))
     conn = await asyncpg.connect(dsn)
 
     case_id = str(uuid.uuid4())

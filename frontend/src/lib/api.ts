@@ -1,6 +1,8 @@
 import { getAuthHeaders } from "./auth";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (process.env.NEXT_PUBLIC_API_BASE ? process.env.NEXT_PUBLIC_API_BASE.replace(/\/api\/v1\/?$/, "") : "http://localhost:8001");
 const SIM_BASE = process.env.NEXT_PUBLIC_SIM_URL || "http://localhost:8090";
 
 export interface TickerData {
@@ -36,8 +38,10 @@ export interface CaseData {
   window_end: string;
   created_at: string;
   updated_at: string;
+  mrs?: number;
   overall_confidence?: number;
   completeness?: number;
+  notice?: string;
 }
 
 export interface DossierData {
@@ -127,6 +131,24 @@ export async function reviewCase(caseId: string, status: string, comment: string
     body: JSON.stringify({ status, comment }),
   });
   if (!res.ok) throw new Error(`Failed to review case: HTTP ${res.status}`);
+  return res.json();
+}
+
+export async function submitCase(caseId: string): Promise<any> {
+  const res = await authFetch(`${API_BASE}/api/v1/cases/${caseId}/submit`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error(`Failed to submit case: HTTP ${res.status}`);
+  return res.json();
+}
+
+export async function revealAccountIdentity(accountId: string, caseId: string, justification: string): Promise<any> {
+  const res = await authFetch(`${API_BASE}/api/v1/accounts/${accountId}/reveal`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ case_id: caseId, justification }),
+  });
+  if (!res.ok) throw new Error(`Failed to reveal account identity: HTTP ${res.status}`);
   return res.json();
 }
 
@@ -259,3 +281,10 @@ export async function fetchEntity(entityId: string): Promise<any> {
   if (!res.ok) throw new Error(`Failed to fetch entity: HTTP ${res.status}`);
   return res.json();
 }
+
+export async function fetchCaseSummary(caseId: string): Promise<any> {
+  const res = await authFetch(`${API_BASE}/api/v1/cases/${caseId}/summary`);
+  if (!res.ok) throw new Error(`Failed to fetch case summary: HTTP ${res.status}`);
+  return res.json();
+}
+

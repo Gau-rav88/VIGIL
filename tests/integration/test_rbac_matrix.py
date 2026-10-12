@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import os
 import jwt
 from api.main import app
+
+os.environ["DEMO_FIXTURES"] = "true"
 from fastapi.testclient import TestClient
 from vigil_common.config import get_settings
 from vigil_common.timeutil import now_utc

@@ -12,7 +12,7 @@ from typing import Any
 
 import asyncpg
 from vigil_common.canonical import canonical_json_bytes
-from vigil_common.hashing import sha256_hex
+from vigil_common.hashing import sha256_bytes, sha256_hex
 from vigil_common.ledger import append_entry
 from vigil_common.logging import get_logger
 from vigil_common.merkle import compute_merkle_root
@@ -132,30 +132,72 @@ class EvidenceEngine:
                     w_end_dt = case_row["window_end"]
 
                 # Query anomalies for case or window
+                cid_uuid = None
                 try:
                     cid_uuid = uuid.UUID(case_id)
-                    db_anoms = await active_conn.fetch(
-                        """
-                        SELECT * FROM vigil.anomalies
-                        WHERE case_id = $1
-                           OR (symbol = $2 AND detected_at >= $3 AND detected_at <= $4)
-                        ORDER BY detected_at;
-                        """,
-                        cid_uuid, target_sym, w_start_dt, w_end_dt,
-                    )
+                except Exception:
+                    cid_uuid = None
+
+                try:
+                    if cid_uuid:
+                        db_anoms = await active_conn.fetch(
+                            """
+                            SELECT * FROM vigil.anomalies
+                            WHERE case_id = $1
+                               OR (symbol = $2 AND detected_at >= $3 AND detected_at <= $4)
+                            ORDER BY detected_at;
+                            """,
+                            cid_uuid, target_sym, w_start_dt, w_end_dt,
+                        )
+                    else:
+                        db_anoms = await active_conn.fetch(
+                            """
+                            SELECT * FROM vigil.anomalies
+                            WHERE symbol = $1 AND detected_at >= $2 AND detected_at <= $3
+                            ORDER BY detected_at;
+                            """,
+                            target_sym, w_start_dt, w_end_dt,
+                        )
                 except Exception as exc:
                     logger.debug("Failed querying anomalies for dossier", error=str(exc))
 
+                if not db_anoms:
+                    try:
+                        db_anoms = await active_conn.fetch(
+                            "SELECT * FROM vigil.anomalies WHERE symbol = $1 ORDER BY detected_at DESC LIMIT 50;",
+                            target_sym,
+                        )
+                    except Exception as exc:
+                        logger.debug("Failed fallback query for anomalies", error=str(exc))
+
                 # Query trades
-                db_trades = await active_conn.fetch(
-                    """
-                    SELECT ts, event_id, trade_id, seq, price, qty, aggressor_side, buyer_account, seller_account, is_synthetic
-                    FROM vigil.trades
-                    WHERE symbol = $1 AND ts >= $2 AND ts <= $3
-                    ORDER BY ts;
-                    """,
-                    target_sym, w_start_dt, w_end_dt,
-                )
+                try:
+                    db_trades = await active_conn.fetch(
+                        """
+                        SELECT ts, event_id, trade_id, seq, price, qty, aggressor_side, buyer_account, seller_account, is_synthetic
+                        FROM vigil.trades
+                        WHERE symbol = $1 AND ts >= $2 AND ts <= $3
+                        ORDER BY ts;
+                        """,
+                        target_sym, w_start_dt, w_end_dt,
+                    )
+                except Exception as exc:
+                    logger.debug("Failed querying trades for dossier", error=str(exc))
+
+                if not db_trades:
+                    try:
+                        db_trades = await active_conn.fetch(
+                            """
+                            SELECT ts, event_id, trade_id, seq, price, qty, aggressor_side, buyer_account, seller_account, is_synthetic
+                            FROM vigil.trades
+                            WHERE symbol = $1
+                            ORDER BY ts DESC LIMIT 100;
+                            """,
+                            target_sym,
+                        )
+                        db_trades = sorted(db_trades, key=lambda r: r["ts"])
+                    except Exception as exc:
+                        logger.debug("Failed fallback query for trades", error=str(exc))
 
                 # Query L2 metrics
                 db_l2 = await active_conn.fetch(
@@ -542,8 +584,9 @@ class EvidenceEngine:
         dossier_for_sig.pop("signature", None)
 
         canonical_bytes = canonical_json_bytes(dossier_for_sig)
+        digest_bytes = sha256_bytes(canonical_bytes)
         digest_hex = sha256_hex(canonical_bytes)
-        sig_bytes = self.signer.sign(canonical_bytes)
+        sig_bytes = self.signer.sign(digest_bytes)
         sig_b64 = base64.b64encode(sig_bytes).decode("ascii")
 
         dossier_dict["signature"] = {

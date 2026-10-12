@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { startScenario, stopScenario } from "@/lib/api";
-import { Play, Square } from "lucide-react";
+import { Play, Square, Lock } from "lucide-react";
+import { getRole, getRoleCapabilities, Role } from "@/lib/auth";
 
 interface ScenarioControlProps {
   status: any;
@@ -44,6 +45,16 @@ export function ScenarioControl({ status, onRefresh }: ScenarioControlProps) {
   const [selectedScenario, setSelectedScenario] = useState("pump_dump_ring_01");
   const [speed, setSpeed] = useState(10);
   const [loading, setLoading] = useState(false);
+  const [role, setRoleState] = useState<Role>(getRole());
+
+  useEffect(() => {
+    setRoleState(getRole());
+    const handler = () => setRoleState(getRole());
+    window.addEventListener("vigil-role-changed", handler);
+    return () => window.removeEventListener("vigil-role-changed", handler);
+  }, []);
+
+  const caps = getRoleCapabilities(role);
 
   const handleStart = async () => {
     setLoading(true);
@@ -151,22 +162,33 @@ export function ScenarioControl({ status, onRefresh }: ScenarioControlProps) {
           </div>
 
           <div className="flex items-center space-x-2">
-            <button
-              onClick={handleStart}
-              disabled={loading}
-              className="flex items-center space-x-2 px-5 py-2.5 rounded-panel bg-verified text-bg-raised font-bold text-xs shadow-md transition disabled:opacity-50"
-            >
-              <Play className="h-4 w-4 fill-current" />
-              <span>Start Scenario</span>
-            </button>
-            <button
-              onClick={handleStop}
-              disabled={loading || !status?.running}
-              className="flex items-center space-x-2 px-4 py-2.5 rounded-panel bg-bg-sunken text-ink-muted hover:text-seal border border-line-strong font-semibold text-xs transition disabled:opacity-50"
-            >
-              <Square className="h-4 w-4" />
-              <span>Halt</span>
-            </button>
+            {!caps.canControlSimulator ? (
+              <div className="flex items-center space-x-2">
+                <span className="flex items-center space-x-1.5 px-3.5 py-2 rounded-panel bg-bg-sunken border border-line text-xs font-mono font-medium text-ink-muted">
+                  <Lock className="h-3.5 w-3.5 text-ink-muted" />
+                  <span>Admin Persona Required</span>
+                </span>
+              </div>
+            ) : (
+              <>
+                <button
+                  onClick={handleStart}
+                  disabled={loading}
+                  className="flex items-center space-x-2 px-5 py-2.5 rounded-panel bg-verified text-bg-raised font-bold text-xs shadow-md transition disabled:opacity-50"
+                >
+                  <Play className="h-4 w-4 fill-current" />
+                  <span>Start Scenario</span>
+                </button>
+                <button
+                  onClick={handleStop}
+                  disabled={loading || !status?.running}
+                  className="flex items-center space-x-2 px-4 py-2.5 rounded-panel bg-bg-sunken text-ink-muted hover:text-seal border border-line-strong font-semibold text-xs transition disabled:opacity-50"
+                >
+                  <Square className="h-4 w-4" />
+                  <span>Halt</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>

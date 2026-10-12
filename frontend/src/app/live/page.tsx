@@ -16,7 +16,9 @@ import {
   MessageSquare,
   AlertTriangle,
   Radio,
+  Lock,
 } from "lucide-react";
+import { getRole, getRoleCapabilities, Role } from "@/lib/auth";
 
 export default function LiveWatchFloorPage() {
   const router = useRouter();
@@ -27,6 +29,16 @@ export default function LiveWatchFloorPage() {
   const [miniSeries, setMiniSeries] = useState<CaseSeries | null>(null);
   const [loading, setLoading] = useState(true);
   const [newAlertIds, setNewAlertIds] = useState<Set<string>>(new Set());
+  const [role, setRoleState] = useState<Role>(getRole());
+
+  useEffect(() => {
+    setRoleState(getRole());
+    const handler = () => setRoleState(getRole());
+    window.addEventListener("vigil-role-changed", handler);
+    return () => window.removeEventListener("vigil-role-changed", handler);
+  }, []);
+
+  const caps = getRoleCapabilities(role);
 
   const loadData = async () => {
     try {
@@ -120,6 +132,13 @@ export default function LiveWatchFloorPage() {
             <span className="flex items-center space-x-1.5 px-2 py-0.5 rounded-chip text-[11px] bg-verified-wash text-verified font-medium border border-verified/30">
               <span className="w-1.5 h-1.5 rounded-full bg-verified animate-ping" />
               <span>Surveillance active</span>
+            </span>
+            <span
+              className={`px-2.5 py-0.5 rounded-chip text-[10px] font-mono font-bold uppercase border ${caps.badgeColor} flex items-center gap-1`}
+              title={caps.description}
+            >
+              {caps.isReadOnly && <Lock className="h-3 w-3" />}
+              <span>{caps.badgeLabel}</span>
             </span>
           </div>
           <p className="text-xs text-ink-muted mt-0.5">

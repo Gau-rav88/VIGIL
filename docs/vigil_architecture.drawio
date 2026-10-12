@@ -1,0 +1,328 @@
+<mxfile host="app.diagrams.net" type="device">
+  <diagram id="vigil-arch" name="VIGIL System Architecture">
+    <mxGraphModel dx="0" dy="0" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="3840" pageHeight="2160" background="#0B0D17" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- ===== TITLE ===== -->
+        <mxCell id="title" value="&lt;font style='font-size:30px;color:#FFFFFF'&gt;&lt;b&gt;PROJECT VIGIL&lt;/b&gt; — System Architecture&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=0;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="920" y="10" width="2000" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="subtitle" value="&lt;font style='font-size:13px;color:#64748b'&gt;Automated Market Manipulation Surveillance · Cryptographic Forensic Evidence · Multi-Agent Case Pipeline&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=0;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="920" y="55" width="2000" height="25" as="geometry"/>
+        </mxCell>
+
+        <!-- ================================================================ -->
+        <!-- CONTAINER 1: DATA SOURCES                                        -->
+        <!-- ================================================================ -->
+        <mxCell id="c1" value="&lt;b style='font-size:16px;color:#e94560'&gt;DATA SOURCES&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a1a2e;strokeColor=#e94560;strokeWidth=2;fontColor=#e94560;fontSize=16;fontStyle=1;verticalAlign=top;spacingTop=10;arcSize=6;shadow=1;container=1;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="20" y="90" width="450" height="2040" as="geometry"/>
+        </mxCell>
+        <mxCell id="src_exf" value="&lt;b style='font-size:16px'&gt;Exchange Privileged Feed&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;font style='font-size:12px;color:#cbd5e1'&gt;L2 / L3 Orderbook Snapshots&lt;br&gt;Trade Ticks (FIX / WebSocket)&lt;br&gt;Regulator Data Feeds&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#252545;strokeColor=#e94560;fontColor=#ffffff;fontSize=13;verticalAlign=middle;align=center;shadow=1;arcSize=10;" vertex="1" parent="c1">
+          <mxGeometry x="20" y="55" width="410" height="240" as="geometry"/>
+        </mxCell>
+        <mxCell id="src_soc" value="&lt;b style='font-size:16px'&gt;Public Social Streams&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;font style='font-size:12px;color:#cbd5e1'&gt;Telegram Public Channels&lt;br&gt;Discord · Reddit · X&lt;br&gt;StockTwits · Forums&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#252545;strokeColor=#e94560;fontColor=#ffffff;fontSize=13;verticalAlign=middle;align=center;shadow=1;arcSize=10;" vertex="1" parent="c1">
+          <mxGeometry x="20" y="315" width="410" height="240" as="geometry"/>
+        </mxCell>
+        <mxCell id="src_sim" value="&lt;img src='https://cdn.simpleicons.org/python/3776AB' width='32' height='32'&gt;&lt;br&gt;&lt;b style='font-size:16px'&gt;VIGIL Simulator&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:12px;color:#cbd5e1'&gt;Synthetic Market + Social Data&lt;br&gt;ws://simulator:8090&lt;br&gt;Pump-and-Dump Scenarios&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#252545;strokeColor=#e94560;fontColor=#ffffff;fontSize=13;verticalAlign=middle;align=center;shadow=1;arcSize=10;" vertex="1" parent="c1">
+          <mxGeometry x="20" y="575" width="410" height="260" as="geometry"/>
+        </mxCell>
+
+        <!-- ================================================================ -->
+        <!-- CONTAINER 2: INGESTION PLANE                                     -->
+        <!-- ================================================================ -->
+        <mxCell id="c2" value="&lt;b style='font-size:16px;color:#3b82f6'&gt;INGESTION PLANE&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#162447;strokeColor=#3b82f6;strokeWidth=2;fontColor=#3b82f6;fontSize=16;fontStyle=1;verticalAlign=top;spacingTop=10;arcSize=6;shadow=1;container=1;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="485" y="90" width="470" height="2040" as="geometry"/>
+        </mxCell>
+        <mxCell id="ing_mi" value="&lt;img src='https://cdn.simpleicons.org/python/3776AB' width='32' height='32'&gt;&lt;br&gt;&lt;b style='font-size:16px'&gt;market_ingest&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:12px;color:#cbd5e1'&gt;fastjsonschema Validation&lt;br&gt;LRU + Redis SETNX Dedupe&lt;br&gt;Seq-Gap Audit&lt;br&gt;Nanosecond Latency Stamp&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1e3060;strokeColor=#3b82f6;fontColor=#ffffff;fontSize=13;verticalAlign=middle;align=center;shadow=1;arcSize=10;" vertex="1" parent="c2">
+          <mxGeometry x="20" y="55" width="430" height="300" as="geometry"/>
+        </mxCell>
+        <mxCell id="ing_si" value="&lt;img src='https://cdn.simpleicons.org/python/3776AB' width='32' height='32'&gt;&lt;br&gt;&lt;b style='font-size:16px'&gt;social_ingest&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:12px;color:#cbd5e1'&gt;Telethon + Synthetic Adapters&lt;br&gt;HMAC-SHA256 Pseudonymizer&lt;br&gt;Lawful Access Gate&lt;br&gt;Visibility Enforcement&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1e3060;strokeColor=#3b82f6;fontColor=#ffffff;fontSize=13;verticalAlign=middle;align=center;shadow=1;arcSize=10;" vertex="1" parent="c2">
+          <mxGeometry x="20" y="375" width="430" height="300" as="geometry"/>
+        </mxCell>
+        <mxCell id="ing_dlq" value="&lt;b style='font-size:15px'&gt;Dead Letter Queue&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;font style='font-size:12px;color:#fca5a5'&gt;dlq.market · dlq.social&lt;br&gt;Rejected Payload Archive&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2d1f1f;strokeColor=#ef4444;fontColor=#ffffff;fontSize=13;verticalAlign=middle;align=center;shadow=1;arcSize=10;dashed=1;dashPattern=8 4;" vertex="1" parent="c2">
+          <mxGeometry x="20" y="695" width="430" height="190" as="geometry"/>
+        </mxCell>
+
+        <!-- ================================================================ -->
+        <!-- CONTAINER 3: STREAMING BACKBONE                                  -->
+        <!-- ================================================================ -->
+        <mxCell id="c3" value="&lt;b style='font-size:16px;color:#8b5cf6'&gt;STREAMING BACKBONE (Redpanda / Kafka)&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2d1b69;strokeColor=#8b5cf6;strokeWidth=2;fontColor=#8b5cf6;fontSize=16;fontStyle=1;verticalAlign=top;spacingTop=10;arcSize=6;shadow=1;container=1;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="970" y="90" width="510" height="2040" as="geometry"/>
+        </mxCell>
+        <mxCell id="bus_raw" value="&lt;img src='https://cdn.simpleicons.org/apachekafka/FFFFFF' width='28' height='28'&gt;&lt;br&gt;&lt;b style='font-size:15px'&gt;Raw Message Topics&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;color:#cbd5e1'&gt;market.trades.raw · market.l2.raw&lt;br&gt;market.l3.raw · social.messages.raw&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3d2b80;strokeColor=#8b5cf6;fontColor=#ffffff;fontSize=13;verticalAlign=middle;align=center;shadow=1;arcSize=10;" vertex="1" parent="c3">
+          <mxGeometry x="20" y="55" width="470" height="230" as="geometry"/>
+        </mxCell>
+        <mxCell id="bus_norm" value="&lt;img src='https://cdn.simpleicons.org/apachekafka/FFFFFF' width='28' height='28'&gt;&lt;br&gt;&lt;b style='font-size:15px'&gt;Normalized Event Topics&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;color:#cbd5e1'&gt;market.trades.norm · market.l2/l3.norm&lt;br&gt;social.signals.norm&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3d2b80;strokeColor=#8b5cf6;fontColor=#ffffff;fontSize=13;verticalAlign=middle;align=center;shadow=1;arcSize=10;" vertex="1" parent="c3">
+          <mxGeometry x="20" y="305" width="470" height="230" as="geometry"/>
+        </mxCell>
+        <mxCell id="bus_anom" value="&lt;img src='https://cdn.simpleicons.org/apachekafka/FFFFFF' width='28' height='28'&gt;&lt;br&gt;&lt;b style='font-size:15px'&gt;Anomaly + Trigger Topics&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;color:#cbd5e1'&gt;anomaly.market · anomaly.social&lt;br&gt;anomaly.fused · case.trigger&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3d2b80;strokeColor=#8b5cf6;fontColor=#ffffff;fontSize=13;verticalAlign=middle;align=center;shadow=1;arcSize=10;" vertex="1" parent="c3">
+          <mxGeometry x="20" y="555" width="470" height="230" as="geometry"/>
+        </mxCell>
+        <mxCell id="bus_case" value="&lt;img src='https://cdn.simpleicons.org/apachekafka/FFFFFF' width='28' height='28'&gt;&lt;br&gt;&lt;b style='font-size:15px'&gt;Case + Graph Topics&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;color:#cbd5e1'&gt;case.trigger · case.events&lt;br&gt;graph.updates · health.events&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3d2b80;strokeColor=#8b5cf6;fontColor=#ffffff;fontSize=13;verticalAlign=middle;align=center;shadow=1;arcSize=10;" vertex="1" parent="c3">
+          <mxGeometry x="20" y="805" width="470" height="230" as="geometry"/>
+        </mxCell>
+
+        <!-- ================================================================ -->
+        <!-- CONTAINER 4: MULTI-AGENT ANALYTICAL PLANE                        -->
+        <!-- ================================================================ -->
+        <mxCell id="c4" value="&lt;b style='font-size:16px;color:#6366f1'&gt;MULTI-AGENT ANALYTICAL PLANE&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1b2838;strokeColor=#6366f1;strokeWidth=2;fontColor=#6366f1;fontSize=16;fontStyle=1;verticalAlign=top;spacingTop=10;arcSize=6;shadow=1;container=1;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="1495" y="90" width="710" height="2040" as="geometry"/>
+        </mxCell>
+        <!-- Left Column -->
+        <mxCell id="agt_qta" value="&lt;img src='https://cdn.simpleicons.org/python/3776AB' width='30' height='30'&gt;&lt;br&gt;&lt;b style='font-size:15px'&gt;Quant Telemetry Agent&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;color:#cbd5e1'&gt;VolumeSpikeDetector&lt;br&gt;SpreadDepthDetector&lt;br&gt;SpoofingLayeringDetector&lt;br&gt;WashCycleDetector&lt;br&gt;SynchronizedOrdersDetector&lt;br&gt;PriceJumpDetector&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#253550;strokeColor=#6366f1;fontColor=#ffffff;fontSize=13;verticalAlign=middle;align=center;shadow=1;arcSize=10;" vertex="1" parent="c4">
+          <mxGeometry x="15" y="55" width="330" height="310" as="geometry"/>
+        </mxCell>
+        <mxCell id="agt_sia" value="&lt;img src='https://cdn.simpleicons.org/python/3776AB' width='30' height='30'&gt;&lt;br&gt;&lt;b style='font-size:15px'&gt;Social Intelligence Agent&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;color:#cbd5e1'&gt;Lingua/NFKC + CTA Parser&lt;br&gt;MinHash-LSH Near-Dup Cluster&lt;br&gt;Bounded Claude LLM Refinement&lt;br&gt;Sliding 60s Hype Scorer&lt;br&gt;(f_rate · f_auth · f_cta · f_dup)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#253550;strokeColor=#6366f1;fontColor=#ffffff;fontSize=13;verticalAlign=middle;align=center;shadow=1;arcSize=10;" vertex="1" parent="c4">
+          <mxGeometry x="15" y="385" width="330" height="310" as="geometry"/>
+        </mxCell>
+        <mxCell id="agt_aln" value="&lt;img src='https://cdn.simpleicons.org/python/3776AB' width='30' height='30'&gt;&lt;br&gt;&lt;b style='font-size:15px'&gt;Alignment Engine&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;color:#cbd5e1'&gt;FFT Normalized Cross-Correlation&lt;br&gt;Block-Shuffle p-Value (B=1000)&lt;br&gt;Manipulation Risk Score (MRS)&lt;br&gt;case.trigger Emission&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#253550;strokeColor=#6366f1;fontColor=#ffffff;fontSize=13;verticalAlign=middle;align=center;shadow=1;arcSize=10;" vertex="1" parent="c4">
+          <mxGeometry x="15" y="715" width="330" height="280" as="geometry"/>
+        </mxCell>
+        <!-- Right Column -->
+        <mxCell id="agt_caa" value="&lt;img src='https://cdn.simpleicons.org/neo4j/4581C3' width='30' height='30'&gt;&lt;br&gt;&lt;b style='font-size:15px'&gt;Attribution Agent (CAA)&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;color:#cbd5e1'&gt;Continuous Neo4j Graph Updater&lt;br&gt;Evidence Linking (KYC, Device,&lt;br&gt;IP, Latency, Cycles)&lt;br&gt;NetworkX Louvain Clustering&lt;br&gt;Ring Score Computation&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#253550;strokeColor=#6366f1;fontColor=#ffffff;fontSize=13;verticalAlign=middle;align=center;shadow=1;arcSize=10;" vertex="1" parent="c4">
+          <mxGeometry x="365" y="55" width="330" height="310" as="geometry"/>
+        </mxCell>
+        <mxCell id="agt_orc" value="&lt;img src='https://cdn.simpleicons.org/python/3776AB' width='30' height='30'&gt;&lt;br&gt;&lt;b style='font-size:15px'&gt;Orchestrator (LangGraph)&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;color:#cbd5e1'&gt;10-Stage Deterministic FSM&lt;br&gt;Open → Enrich → Align →&lt;br&gt;Attribute → Assess → Draft →&lt;br&gt;Validate → Sign → Review → Publish&lt;br&gt;AsyncPostgresSaver Checkpoints&lt;br&gt;Human-in-the-Loop interrupt()&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#253550;strokeColor=#6366f1;fontColor=#ffffff;fontSize=13;verticalAlign=middle;align=center;shadow=1;arcSize=10;" vertex="1" parent="c4">
+          <mxGeometry x="365" y="385" width="330" height="360" as="geometry"/>
+        </mxCell>
+        <mxCell id="agt_rbus" value="&lt;img src='https://cdn.simpleicons.org/redis/FF4438' width='28' height='28'&gt;&lt;br&gt;&lt;b style='font-size:15px'&gt;Redis Streams Agent Bus&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;color:#cbd5e1'&gt;bus:agent:commands&lt;br&gt;bus:agent:results&lt;br&gt;XREADGROUP RPC&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#253550;strokeColor=#c084fc;fontColor=#ffffff;fontSize=13;verticalAlign=middle;align=center;shadow=1;arcSize=10;" vertex="1" parent="c4">
+          <mxGeometry x="365" y="765" width="330" height="230" as="geometry"/>
+        </mxCell>
+
+        <!-- ================================================================ -->
+        <!-- CONTAINER 5: STORAGE PLANE                                       -->
+        <!-- ================================================================ -->
+        <mxCell id="c5" value="&lt;b style='font-size:16px;color:#059669'&gt;STORAGE + PERSISTENCE PLANE&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0d2137;strokeColor=#059669;strokeWidth=2;fontColor=#059669;fontSize=16;fontStyle=1;verticalAlign=top;spacingTop=10;arcSize=6;shadow=1;container=1;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="2220" y="90" width="530" height="2040" as="geometry"/>
+        </mxCell>
+        <mxCell id="sto_sink" value="&lt;img src='https://cdn.simpleicons.org/python/3776AB' width='28' height='28'&gt;&lt;br&gt;&lt;b style='font-size:15px'&gt;stream_sink&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;color:#cbd5e1'&gt;Batch asyncpg COPY Writer&lt;br&gt;Hourly NDJSON.zst Archiver&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#153050;strokeColor=#059669;fontColor=#ffffff;fontSize=13;verticalAlign=middle;align=center;shadow=1;arcSize=10;" vertex="1" parent="c5">
+          <mxGeometry x="20" y="55" width="490" height="190" as="geometry"/>
+        </mxCell>
+        <mxCell id="sto_ts" value="&lt;img src='https://cdn.simpleicons.org/postgresql/4169E1' width='32' height='32'&gt;&lt;br&gt;&lt;b style='font-size:15px'&gt;TimescaleDB (PostgreSQL 16)&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;color:#cbd5e1'&gt;trades · orders_l3 · l2_snapshots&lt;br&gt;bars_1s Continuous Aggregates&lt;br&gt;hype_scores · anomalies · cases&lt;br&gt;Append-Only evidence_ledger&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#153050;strokeColor=#059669;fontColor=#ffffff;fontSize=13;verticalAlign=middle;shadow=1;" vertex="1" parent="c5">
+          <mxGeometry x="20" y="265" width="490" height="240" as="geometry"/>
+        </mxCell>
+        <mxCell id="sto_neo" value="&lt;img src='https://cdn.simpleicons.org/neo4j/4581C3' width='32' height='32'&gt;&lt;br&gt;&lt;b style='font-size:15px'&gt;Neo4j 5 Community + APOC&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;color:#cbd5e1'&gt;Trader · Broker · Device · Entity Nodes&lt;br&gt;TRADED_WITH · LINKED · CONTROLLED_BY&lt;br&gt;Cypher Wash-Cycle Queries&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#153050;strokeColor=#059669;fontColor=#ffffff;fontSize=13;verticalAlign=middle;shadow=1;" vertex="1" parent="c5">
+          <mxGeometry x="20" y="525" width="490" height="230" as="geometry"/>
+        </mxCell>
+        <mxCell id="sto_red" value="&lt;img src='https://cdn.simpleicons.org/redis/FF4438' width='32' height='32'&gt;&lt;br&gt;&lt;b style='font-size:15px'&gt;Redis 7.4&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;color:#cbd5e1'&gt;Idempotency Dedupe (SETNX)&lt;br&gt;Rolling Symbol State + MRS Cache&lt;br&gt;Agent Streams Bus&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#153050;strokeColor=#059669;fontColor=#ffffff;fontSize=13;verticalAlign=middle;shadow=1;" vertex="1" parent="c5">
+          <mxGeometry x="20" y="775" width="490" height="210" as="geometry"/>
+        </mxCell>
+        <mxCell id="sto_s3" value="&lt;img src='https://cdn.simpleicons.org/minio/C72E49' width='32' height='32'&gt;&lt;br&gt;&lt;b style='font-size:15px'&gt;MinIO S3 Object Store (WORM)&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px;color:#cbd5e1'&gt;vigil-raw (NDJSON.zst Archives)&lt;br&gt;vigil-evidence (Slices + Charts)&lt;br&gt;vigil-dossiers (PDF + Sig + Bundle)&lt;br&gt;vigil-anchors (Daily Merkle Roots)&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#153050;strokeColor=#059669;fontColor=#ffffff;fontSize=13;verticalAlign=middle;shadow=1;" vertex="1" parent="c5">
+          <mxGeometry x="20" y="1005" width="490" height="240" as="geometry"/>
+        </mxCell>
+
+        <!-- ================================================================ -->
+        <!-- CONTAINER 6: EVIDENCE + SECURITY                                 -->
+        <!-- ================================================================ -->
+        <mxCell id="c6" value="&lt;b style='font-size:16px;color:#f59e0b'&gt;EVIDENCE + SECURITY PLANE&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2d1f0e;strokeColor=#f59e0b;strokeWidth=2;fontColor=#f59e0b;fontSize=16;fontStyle=1;verticalAlign=top;spacingTop=10;arcSize=6;shadow=1;container=1;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="2765" y="90" width="470" height="2040" as="geometry"/>
+        </mxCell>
+        <mxCell id="evd_ee" value="&lt;img src='https://cdn.simpleicons.org/python/3776AB' width='30' height='30'&gt;&lt;br&gt;&lt;b style='font-size:16px'&gt;Evidence Engine&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:12px;color:#cbd5e1'&gt;Deterministic Slice Extraction&lt;br&gt;RFC 6962 Merkle Tree&lt;br&gt;Append-Only Hash-Chain Ledger&lt;br&gt;RFC 8785 JCS Canonicalization&lt;br&gt;Ed25519 Digital Signature&lt;br&gt;WeasyPrint Court-Ready PDF&lt;br&gt;Bundle.zip Packager&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3d2f1e;strokeColor=#f59e0b;fontColor=#ffffff;fontSize=13;verticalAlign=middle;align=center;shadow=1;arcSize=10;" vertex="1" parent="c6">
+          <mxGeometry x="20" y="55" width="430" height="420" as="geometry"/>
+        </mxCell>
+        <mxCell id="evd_ver" value="&lt;b style='font-size:16px'&gt;Independent Verifier&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;font style='font-size:12px;color:#cbd5e1'&gt;CLI (vigil-verify) + WebCrypto&lt;br&gt;JSON Schema Validation&lt;br&gt;SHA-256 File Integrity&lt;br&gt;Merkle Root Recomputation&lt;br&gt;Ledger Chain Verification&lt;br&gt;Ed25519 Signature Check&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3d2f1e;strokeColor=#f59e0b;fontColor=#ffffff;fontSize=13;verticalAlign=middle;align=center;shadow=1;arcSize=10;" vertex="1" parent="c6">
+          <mxGeometry x="20" y="495" width="430" height="330" as="geometry"/>
+        </mxCell>
+
+        <!-- ================================================================ -->
+        <!-- CONTAINER 7: SERVING LAYER                                       -->
+        <!-- ================================================================ -->
+        <mxCell id="c7" value="&lt;b style='font-size:16px;color:#10b981'&gt;SERVING + PRESENTATION LAYER&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0e2a1f;strokeColor=#10b981;strokeWidth=2;fontColor=#10b981;fontSize=16;fontStyle=1;verticalAlign=top;spacingTop=10;arcSize=6;shadow=1;container=1;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="3250" y="90" width="560" height="2040" as="geometry"/>
+        </mxCell>
+        <mxCell id="srv_api" value="&lt;img src='https://cdn.simpleicons.org/fastapi/009688' width='32' height='32'&gt;&lt;br&gt;&lt;b style='font-size:16px'&gt;FastAPI Backend&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:12px;color:#cbd5e1'&gt;REST API (Port 8000)&lt;br&gt;WebSocket /ws/v1/stream&lt;br&gt;RBAC (Investigator, Compliance,&lt;br&gt;Admin, Auditor)&lt;br&gt;Prometheus /metrics&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#183a2f;strokeColor=#10b981;fontColor=#ffffff;fontSize=13;verticalAlign=middle;align=center;shadow=1;arcSize=10;" vertex="1" parent="c7">
+          <mxGeometry x="20" y="55" width="520" height="300" as="geometry"/>
+        </mxCell>
+        <mxCell id="srv_fe" value="&lt;img src='https://cdn.simpleicons.org/nextdotjs/FFFFFF' width='32' height='32'&gt;&lt;br&gt;&lt;b style='font-size:16px'&gt;Next.js 14 Frontend&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:12px;color:#cbd5e1'&gt;Live MRS Manipulation Heatmap&lt;br&gt;Recharts Multi-Track Timeline&lt;br&gt;Cytoscape.js Entity Ring Graph&lt;br&gt;Court Dossier Viewer&lt;br&gt;Cryptographic Bundle Verifier&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#183a2f;strokeColor=#10b981;fontColor=#ffffff;fontSize=13;verticalAlign=middle;align=center;shadow=1;arcSize=10;" vertex="1" parent="c7">
+          <mxGeometry x="20" y="375" width="520" height="310" as="geometry"/>
+        </mxCell>
+        <mxCell id="srv_usr" value="&lt;b style='font-size:16px'&gt;Investigator / Compliance Officer&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;font style='font-size:12px;color:#cbd5e1'&gt;Case Triage + Directive Steering&lt;br&gt;Review Gate (Approve / Reject / Rework)&lt;br&gt;Link Feedback (Confirm / Reject)&lt;br&gt;Account Re-identification&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#183a2f;strokeColor=#10b981;fontColor=#ffffff;fontSize=13;verticalAlign=middle;align=center;shadow=1;arcSize=10;" vertex="1" parent="c7">
+          <mxGeometry x="20" y="705" width="520" height="260" as="geometry"/>
+        </mxCell>
+
+        <!-- ================================================================ -->
+        <!-- OBSERVABILITY BAR (bottom)                                       -->
+        <!-- ================================================================ -->
+        <mxCell id="c8" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a1a2e;strokeColor=#64748b;strokeWidth=1;arcSize=4;container=1;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="20" y="2140" width="3790" height="0" as="geometry"/>
+        </mxCell>
+
+        <!-- ================================================================ -->
+        <!-- EDGES: DATA INGESTION FLOW (GREEN)                               -->
+        <!-- ================================================================ -->
+        <mxCell id="e1" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#4ade80;endArrow=blockThin;endFill=1;" edge="1" source="src_exf" target="ing_mi" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e2" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#4ade80;endArrow=blockThin;endFill=1;" edge="1" source="src_soc" target="ing_si" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e3" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#4ade80;endArrow=blockThin;endFill=1;" edge="1" source="src_sim" target="ing_mi" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e4" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#4ade80;endArrow=blockThin;endFill=1;" edge="1" source="src_sim" target="ing_si" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- INGESTION TO STREAMING -->
+        <mxCell id="e5" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#4ade80;endArrow=blockThin;endFill=1;" edge="1" source="ing_mi" target="bus_raw" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e6" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#4ade80;endArrow=blockThin;endFill=1;" edge="1" source="ing_si" target="bus_raw" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e7" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#4ade80;endArrow=blockThin;endFill=1;" edge="1" source="ing_mi" target="bus_norm" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- INGESTION TO DLQ (RED) -->
+        <mxCell id="e8" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#ef4444;endArrow=blockThin;endFill=1;dashed=1;dashPattern=8 4;" edge="1" source="ing_mi" target="ing_dlq" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e9" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#ef4444;endArrow=blockThin;endFill=1;dashed=1;dashPattern=8 4;" edge="1" source="ing_si" target="ing_dlq" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ================================================================ -->
+        <!-- EDGES: STREAMING TO AGENTS (INDIGO)                              -->
+        <!-- ================================================================ -->
+        <mxCell id="e10" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#818cf8;endArrow=blockThin;endFill=1;" edge="1" source="bus_norm" target="agt_qta" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e11" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#818cf8;endArrow=blockThin;endFill=1;" edge="1" source="bus_raw" target="agt_sia" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e12" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#818cf8;endArrow=blockThin;endFill=1;" edge="1" source="agt_sia" target="bus_norm" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e13" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#818cf8;endArrow=blockThin;endFill=1;" edge="1" source="bus_norm" target="agt_caa" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- AGENTS TO ANOMALY TOPICS -->
+        <mxCell id="e14" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#818cf8;endArrow=blockThin;endFill=1;" edge="1" source="agt_qta" target="bus_anom" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e15" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#818cf8;endArrow=blockThin;endFill=1;" edge="1" source="agt_sia" target="bus_anom" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e16" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#818cf8;endArrow=blockThin;endFill=1;startArrow=blockThin;startFill=1;" edge="1" source="bus_anom" target="agt_aln" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e17" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#818cf8;endArrow=blockThin;endFill=1;" edge="1" source="agt_aln" target="bus_case" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e18" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#818cf8;endArrow=blockThin;endFill=1;" edge="1" source="agt_caa" target="bus_case" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e19" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#818cf8;endArrow=blockThin;endFill=1;" edge="1" source="bus_case" target="agt_orc" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ================================================================ -->
+        <!-- EDGES: AGENT RPC BUS (PURPLE, DASHED)                            -->
+        <!-- ================================================================ -->
+        <mxCell id="e20" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#c084fc;endArrow=blockThin;endFill=1;startArrow=blockThin;startFill=1;" edge="1" source="agt_orc" target="agt_rbus" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e21" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#c084fc;endArrow=blockThin;endFill=1;startArrow=blockThin;startFill=1;dashed=1;dashPattern=5 3;" edge="1" source="agt_rbus" target="agt_qta" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e22" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#c084fc;endArrow=blockThin;endFill=1;startArrow=blockThin;startFill=1;dashed=1;dashPattern=5 3;" edge="1" source="agt_rbus" target="agt_sia" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e23" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#c084fc;endArrow=blockThin;endFill=1;startArrow=blockThin;startFill=1;dashed=1;dashPattern=5 3;" edge="1" source="agt_rbus" target="agt_caa" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ================================================================ -->
+        <!-- EDGES: STORAGE WRITES (SKY BLUE)                                 -->
+        <!-- ================================================================ -->
+        <mxCell id="e24" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#38bdf8;endArrow=blockThin;endFill=1;" edge="1" source="bus_raw" target="sto_sink" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e25" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#38bdf8;endArrow=blockThin;endFill=1;" edge="1" source="bus_norm" target="sto_sink" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e26" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#38bdf8;endArrow=blockThin;endFill=1;" edge="1" source="sto_sink" target="sto_ts" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e27" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#38bdf8;endArrow=blockThin;endFill=1;" edge="1" source="sto_sink" target="sto_s3" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e28" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#38bdf8;endArrow=blockThin;endFill=1;" edge="1" source="bus_case" target="sto_neo" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- AGENTS TO STORAGE (BIDIRECTIONAL) -->
+        <mxCell id="e29" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#a78bfa;endArrow=blockThin;endFill=1;startArrow=blockThin;startFill=1;" edge="1" source="agt_qta" target="sto_red" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e30" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#a78bfa;endArrow=blockThin;endFill=1;startArrow=blockThin;startFill=1;" edge="1" source="agt_sia" target="sto_red" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e31" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#a78bfa;endArrow=blockThin;endFill=1;startArrow=blockThin;startFill=1;" edge="1" source="agt_aln" target="sto_red" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e32" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#a78bfa;endArrow=blockThin;endFill=1;startArrow=blockThin;startFill=1;" edge="1" source="agt_caa" target="sto_neo" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ================================================================ -->
+        <!-- EDGES: EVIDENCE FLOW (AMBER)                                     -->
+        <!-- ================================================================ -->
+        <mxCell id="e33" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#fbbf24;endArrow=blockThin;endFill=1;" edge="1" source="agt_orc" target="evd_ee" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e34" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#fbbf24;endArrow=blockThin;endFill=1;" edge="1" source="evd_ee" target="sto_ts" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e35" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#fbbf24;endArrow=blockThin;endFill=1;" edge="1" source="evd_ee" target="sto_s3" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e36" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#fbbf24;endArrow=blockThin;endFill=1;" edge="1" source="evd_ee" target="evd_ver" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ================================================================ -->
+        <!-- EDGES: API / SERVING FLOW (PINK + EMERALD)                       -->
+        <!-- ================================================================ -->
+        <mxCell id="e37" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#f472b6;endArrow=blockThin;endFill=1;" edge="1" source="srv_api" target="sto_ts" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e38" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#f472b6;endArrow=blockThin;endFill=1;" edge="1" source="srv_api" target="sto_neo" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e39" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#f472b6;endArrow=blockThin;endFill=1;" edge="1" source="srv_api" target="agt_orc" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e40" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#f472b6;endArrow=blockThin;endFill=1;" edge="1" source="srv_api" target="evd_ver" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e41" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#10b981;endArrow=blockThin;endFill=1;startArrow=blockThin;startFill=1;" edge="1" source="srv_api" target="srv_fe" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e42" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#10b981;endArrow=blockThin;endFill=1;startArrow=blockThin;startFill=1;" edge="1" source="srv_fe" target="srv_usr" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- STREAMING ANOMALY TO API (WebSocket fan-out) -->
+        <mxCell id="e43" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#f472b6;endArrow=blockThin;endFill=1;dashed=1;dashPattern=8 4;" edge="1" source="bus_anom" target="srv_api" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e44" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#f472b6;endArrow=blockThin;endFill=1;dashed=1;dashPattern=8 4;" edge="1" source="bus_case" target="srv_api" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ================================================================ -->
+        <!-- LEGEND (bottom-right corner)                                     -->
+        <!-- ================================================================ -->
+        <mxCell id="legend" value="&lt;div style='text-align:left;padding:8px'&gt;&lt;b style='font-size:14px'&gt;Edge Legend&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:11px'&gt;&lt;font color='#4ade80'&gt;━━&lt;/font&gt; Data Ingestion Flow&lt;br&gt;&lt;font color='#818cf8'&gt;━━&lt;/font&gt; Agent Data Flow&lt;br&gt;&lt;font color='#c084fc'&gt;╌╌&lt;/font&gt; Agent RPC Bus&lt;br&gt;&lt;font color='#38bdf8'&gt;━━&lt;/font&gt; Storage Writes&lt;br&gt;&lt;font color='#a78bfa'&gt;━━&lt;/font&gt; Agent ↔ Storage&lt;br&gt;&lt;font color='#fbbf24'&gt;━━&lt;/font&gt; Evidence Flow&lt;br&gt;&lt;font color='#f472b6'&gt;━━&lt;/font&gt; API / Serving&lt;br&gt;&lt;font color='#ef4444'&gt;╌╌&lt;/font&gt; Error / DLQ&lt;/font&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a1a2e;strokeColor=#334155;fontColor=#94a3b8;fontSize=11;verticalAlign=top;align=left;arcSize=8;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="1780" width="200" height="250" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

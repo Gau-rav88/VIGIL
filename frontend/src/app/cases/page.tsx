@@ -7,7 +7,8 @@ import { copy } from "@/lib/copy";
 import { formatTime, formatRelativeTime } from "@/lib/time";
 import { Chip } from "@/components/ui/Chip";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Search, Filter, ShieldAlert, ArrowRight } from "lucide-react";
+import { Search, Filter, ShieldAlert, ArrowRight, Lock, ShieldCheck } from "lucide-react";
+import { getRole, getRoleCapabilities, Role } from "@/lib/auth";
 
 type SavedView = "AWAITING_REVIEW" | "NEEDS_REWORK" | "OPEN" | "WATCHLIST" | "ALL";
 
@@ -15,7 +16,20 @@ export default function CasesQueuePage() {
   const router = useRouter();
   const [cases, setCases] = useState<CaseData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [savedView, setSavedView] = useState<SavedView>("ALL");
+  const [role, setRoleState] = useState<Role>(getRole());
+
+  useEffect(() => {
+    setRoleState(getRole());
+    const handler = () => setRoleState(getRole());
+    window.addEventListener("vigil-role-changed", handler);
+    return () => window.removeEventListener("vigil-role-changed", handler);
+  }, []);
+
+  const caps = getRoleCapabilities(role);
+
+  const [savedView, setSavedView] = useState<SavedView>(
+    role === "compliance_officer" ? "AWAITING_REVIEW" : "ALL"
+  );
   const [tickerQuery, setTickerQuery] = useState("");
   const [minRisk, setMinRisk] = useState<number>(0);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -45,8 +59,8 @@ export default function CasesQueuePage() {
       if (savedView === "OPEN" && c.status !== "OPENED") return false;
       // Ticker filter
       if (tickerQuery && !c.symbol.toLowerCase().includes(tickerQuery.toLowerCase())) return false;
-      // Risk filter (mocked or derived from overall_confidence)
-      const riskScore = Math.round((c.overall_confidence ?? 0.86) * 100);
+      // Risk filter (prioritize c.mrs, fallback to overall_confidence)
+      const riskScore = c.mrs !== undefined && c.mrs !== null ? Math.round(c.mrs) : Math.round((c.overall_confidence ?? 0.86) * 100);
       if (minRisk > 0 && riskScore < minRisk) return false;
       return true;
     });
@@ -81,10 +95,19 @@ export default function CasesQueuePage() {
       {/* Title & Stats */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-line pb-4">
         <div>
-          <h1 className="font-serif text-xl font-semibold text-ink flex items-center gap-2">
-            <ShieldAlert className="h-5 w-5 text-ink" />
-            <span>Case Queue</span>
-          </h1>
+          <div className="flex items-center space-x-3">
+            <h1 className="font-serif text-xl font-semibold text-ink flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-ink" />
+              <span>Case Queue</span>
+            </h1>
+            <span
+              className={`px-2.5 py-0.5 rounded-chip text-[10px] font-mono font-bold uppercase border ${caps.badgeColor} flex items-center gap-1`}
+              title={caps.description}
+            >
+              {caps.isReadOnly && <Lock className="h-3 w-3" />}
+              <span>{caps.badgeLabel}</span>
+            </span>
+          </div>
           <p className="text-xs text-ink-muted mt-0.5">
             Surveillance desk forensic cases awaiting attribution, verification, or compliance signoff.
           </p>
@@ -92,6 +115,35 @@ export default function CasesQueuePage() {
         <div className="flex items-center space-x-2 text-xs text-ink-muted">
           <span>Active filter matches:</span>
           <strong className="text-ink font-mono">{filteredCases.length}</strong>
+        </div>
+      </div>
+
+      {/* Role Dedicated Workflow Bar */}
+      <div className="p-3 rounded-panel bg-bg-raised border border-line flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs shadow-xs">
+        <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+          <span className="font-bold uppercase tracking-wider text-ink-muted text-[10px] shrink-0">
+            {caps.label} Workflow:
+          </span>
+          {role === "investigator" && (
+            <span className="text-ink font-medium">
+              1. Triage open case &rarr; 2. Analyze forensic tape &rarr; 3. Confirm graph attribution &rarr; 4. Click &ldquo;Submit to Compliance&rdquo;
+            </span>
+          )}
+          {role === "compliance_officer" && (
+            <span className="text-ink font-medium">
+              1. Select case pending review &rarr; 2. Inspect cryptographic evidence &rarr; 3. Click &ldquo;Review &amp; Sign&rdquo; for legal signoff
+            </span>
+          )}
+          {role === "admin" && (
+            <span className="text-ink font-medium">
+              1. Inspect cases &rarr; 2. Use Simulator Engine to inject synthetic manipulation and test detection
+            </span>
+          )}
+          {role === "auditor_readonly" && (
+            <span className="text-ink font-medium">
+              1. Select case record &rarr; 2. Verify Merkle proofs &amp; SHA-256 evidence digests against ledger
+            </span>
+          )}
         </div>
       </div>
 
@@ -181,7 +233,7 @@ export default function CasesQueuePage() {
               <tbody className="divide-y divide-line/60">
                 {filteredCases.map((c, index) => {
                   const isSelected = index === selectedIndex;
-                  const riskScore = Math.round((c.overall_confidence ?? 0.86) * 100);
+                  const riskScore = c.mrs !== undefined && c.mrs !== null ? Math.round(c.mrs) : Math.round((c.overall_confidence ?? 0.86) * 100);
                   const isNeedsAttention = c.status === "PENDING_REVIEW";
 
                   return (
@@ -245,8 +297,12 @@ export default function CasesQueuePage() {
 
                       {/* Notices */}
                       <td className="py-3 px-4">
-                        {riskScore >= 80 ? (
-                          <span className="text-[11px] px-2 py-0.5 rounded-cell bg-uv-wash text-uv border border-uv/20">
+                        {c.notice && c.notice !== "—" ? (
+                          <span className="text-[11px] px-2 py-0.5 rounded-cell bg-uv-wash text-uv border border-uv/20 font-medium">
+                            {c.notice}
+                          </span>
+                        ) : riskScore >= 80 ? (
+                          <span className="text-[11px] px-2 py-0.5 rounded-cell bg-uv-wash text-uv border border-uv/20 font-medium">
                             Ring active
                           </span>
                         ) : (

@@ -4,10 +4,12 @@ import React, { useState, useEffect } from "react";
 import { fetchSimStatus } from "@/lib/api";
 import { ScenarioControl } from "@/components/ScenarioControl";
 import { Button } from "@/components/ui/Button";
-import { Zap, RefreshCw, ShieldAlert, ArrowRight } from "lucide-react";
+import { Zap, RefreshCw, ShieldAlert, ArrowRight, ShieldCheck, Lock } from "lucide-react";
+import { getRole, getRoleCapabilities, Role } from "@/lib/auth";
 
 export default function SimulatorPage() {
   const [status, setStatus] = useState<any>(null);
+  const [role, setRoleState] = useState<Role>(getRole());
 
   const loadStatus = async () => {
     try {
@@ -17,6 +19,15 @@ export default function SimulatorPage() {
       //
     }
   };
+
+  useEffect(() => {
+    setRoleState(getRole());
+    const handler = () => setRoleState(getRole());
+    window.addEventListener("vigil-role-changed", handler);
+    return () => window.removeEventListener("vigil-role-changed", handler);
+  }, []);
+
+  const caps = getRoleCapabilities(role);
 
   useEffect(() => {
     loadStatus();
@@ -60,6 +71,35 @@ export default function SimulatorPage() {
           </Button>
         </div>
       </div>
+
+      {/* Role Permission Status Banner */}
+      {!caps.canControlSimulator ? (
+        <div className="p-3.5 rounded-panel bg-tag-wash/40 border border-tag/50 text-xs text-tag-ink flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center space-x-2.5">
+            <ShieldAlert className="h-4 w-4 text-tag-ink shrink-0" />
+            <div>
+              <span className="font-bold">Simulation Controls Restricted: </span>
+              <span>
+                Scenario execution requires the <strong>System Admin</strong> persona. Current persona: <strong>{caps.label}</strong> (Read-only observation). Switch persona in the top-right header to control the matching engine.
+              </span>
+            </div>
+          </div>
+          <span className={`px-2.5 py-0.5 rounded-chip text-[10px] font-mono font-bold uppercase border shrink-0 ${caps.badgeColor} flex items-center gap-1`}>
+            <Lock className="h-3 w-3" />
+            <span>{caps.badgeLabel}</span>
+          </span>
+        </div>
+      ) : (
+        <div className="p-3 rounded-panel bg-verified-wash/30 border border-verified/40 text-xs text-verified flex items-center justify-between shadow-xs">
+          <div className="flex items-center space-x-2">
+            <ShieldCheck className="h-4 w-4 text-verified shrink-0" />
+            <span className="font-semibold">System Admin Authority Active: Matching engine scenarios and synthetic anomaly injection authorized.</span>
+          </div>
+          <span className="px-2.5 py-0.5 rounded-chip text-[10px] font-mono font-bold uppercase bg-verified-wash text-verified border border-verified/40 shrink-0">
+            ADMIN AUTHORIZED
+          </span>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
